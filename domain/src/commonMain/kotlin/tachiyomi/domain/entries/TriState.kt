@@ -13,4 +13,5 @@ inline fun applyFilter(filter: TriState, predicate: () -> Boolean): Boolean = wh
     TriState.DISABLED -> true
     TriState.ENABLED_IS -> predicate()
     TriState.ENABLED_NOT -> !predicate()
+    else -> error("Unknown TriState: $filter")
 }
