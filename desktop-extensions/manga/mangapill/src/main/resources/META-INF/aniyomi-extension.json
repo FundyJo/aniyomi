@@ -1,0 +1,23 @@
+{
+  "id": "mangapill-en",
+  "name": "MangaPill",
+  "version": "9",
+  "language": "en",
+  "type": "manga",
+  "entryPoints": [
+    "eu.kanade.aniyomi.desktop.extension.manga.mangapill.MangaPillDesktopSource"
+  ],
+  "sources": [
+    7645603772455389384
+  ],
+  "capabilities": [
+    "Manga",
+    "Popular",
+    "Latest",
+    "Search",
+    "Network"
+  ],
+  "hostAllowlist": [
+    "mangapill.com"
+  ]
+}
