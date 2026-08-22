@@ -1,7 +1,5 @@
 package tachiyomi.domain.items.chapter.interactor
 
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.items.chapter.model.ChapterUpdate
 import tachiyomi.domain.items.chapter.repository.ChapterRepository
 
@@ -13,7 +11,6 @@ class UpdateChapter(
         try {
             chapterRepository.updateChapter(chapterUpdate)
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
         }
     }
 
@@ -21,7 +18,6 @@ class UpdateChapter(
         try {
             chapterRepository.updateAllChapters(chapterUpdates)
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
         }
     }
 }

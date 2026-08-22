@@ -1,18 +1,16 @@
 package tachiyomi.domain.entries.anime.model
 
-import androidx.compose.runtime.Immutable
 import aniyomi.domain.anime.SeasonDisplayMode
 import eu.kanade.tachiyomi.animesource.model.AnimeUpdateStrategy
 import eu.kanade.tachiyomi.animesource.model.FetchType
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
-import tachiyomi.core.common.preference.TriState
-import java.io.Serializable
-import java.time.Instant
+import tachiyomi.domain.entries.EntryUpdateInstant
+import tachiyomi.domain.entries.TriState
+import tachiyomi.domain.entries.entryUpdateInstantFromEpochMilliseconds
+import tachiyomi.domain.serialization.DomainSerializable
 import kotlin.math.pow
 
-@Immutable
 data class Anime(
     val id: Long,
     val source: Long,
@@ -45,12 +43,12 @@ data class Anime(
     val seasonNumber: Double,
     val seasonSourceOrder: Long,
     val memo: JsonObject,
-) : Serializable {
+) : DomainSerializable {
 
-    val expectedNextUpdate: Instant?
+    val expectedNextUpdate: EntryUpdateInstant?
         get() = nextUpdate
             .takeIf { status != SAnime.COMPLETED.toLong() }
-            ?.let { Instant.ofEpochMilli(it) }
+            ?.let { entryUpdateInstantFromEpochMilliseconds(it) }
 
     val sorting: Long
         get() = episodeFlags and EPISODE_SORTING_MASK
@@ -343,7 +341,7 @@ data class Anime(
             seasonFlags = 0L,
             seasonNumber = -1.0,
             seasonSourceOrder = 0L,
-            memo = JsonObject.EMPTY,
+            memo = JsonObject(emptyMap()),
         )
     }
 }

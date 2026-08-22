@@ -1,6 +1,5 @@
 package tachiyomi.domain.items.chapter.service
 
-import tachiyomi.core.common.util.lang.compareToWithCollator
 import tachiyomi.domain.entries.manga.model.Manga
 import tachiyomi.domain.items.chapter.model.Chapter
 
@@ -22,8 +21,8 @@ fun getChapterSort(manga: Manga, sortDescending: Boolean = manga.sortDescending(
             false -> { c1, c2 -> c1.dateUpload.compareTo(c2.dateUpload) }
         }
         Manga.CHAPTER_SORTING_ALPHABET -> when (sortDescending) {
-            true -> { c1, c2 -> c2.name.compareToWithCollator(c1.name) }
-            false -> { c1, c2 -> c1.name.compareToWithCollator(c2.name) }
+            true -> { c1, c2 -> c2.name.compareTo(c1.name, ignoreCase = true) }
+            false -> { c1, c2 -> c1.name.compareTo(c2.name, ignoreCase = true) }
         }
         else -> throw NotImplementedError("Invalid chapter sorting method: ${manga.sorting}")
     }

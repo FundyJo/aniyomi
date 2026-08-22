@@ -1,7 +1,6 @@
 package tachiyomi.domain.items.episode.model
 
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 
 data class Episode(
     val id: Long,
@@ -60,7 +59,7 @@ data class Episode(
             previewUrl = null,
             lastModifiedAt = 0,
             version = 1,
-            memo = JsonObject.EMPTY,
+            memo = JsonObject(emptyMap()),
         )
     }
 }
