@@ -32,7 +32,7 @@
 | Player | Compile Pending | Jellyfin episode video resolution now loads real `VideoSource` entries into an embedded libmpv/JNA engine with header forwarding, quality selection, playback controls, keyboard controls, fullscreen state, and periodic progress persistence; compile/runtime validation remains blocked locally. |
 | History | Compile Pending | Desktop History screen reads real anime and manga history SQLDelight views. |
 | Updates | Compile Pending | Desktop Updates screen reads real anime and manga update SQLDelight views. |
-| Downloads | Not Started | Desktop screen shows the resolved download directory; reader/player source flows are prioritized before the coroutine download worker. |
+| Downloads | Compile Pending | Desktop coroutine download engine now persists queue metadata, downloads MangaPill chapter pages and direct anime video files, exposes pause/resume/cancel/retry/delete/open-folder actions, and reader/player routes prefer completed local files; Kotlin compile and runtime validation remain pending. |
 | Tracking | Compile Pending | Desktop source secret storage uses Windows DPAPI via JNA for Jellyfin API tokens; non-Windows desktop reports unsupported instead of plaintext fallback. |
 | Backup | Not Started | Desktop backup import/export has not been implemented. |
 | Settings | Compile Pending | Desktop settings include Jellyfin host/user/library fields, DPAPI-backed token save, and a real Test Connection action. |

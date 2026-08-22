@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.animesource.model
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 import eu.kanade.tachiyomi.source.network.HttpHeaders
 
 @Serializable
@@ -41,7 +40,7 @@ data class Video(
     val ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
     val internalData: String = "",
     val initialized: Boolean = false,
-    val memo: JsonObject = JsonObject.EMPTY,
+    val memo: JsonObject = JsonObject(emptyMap()),
 ) {
     // TODO(1.6): Remove after ext lib bump
     @Deprecated("Use videoTitle instead", ReplaceWith("videoTitle"))
@@ -102,7 +101,7 @@ data class Video(
         initialized: Boolean = false,
     ) : this(
         videoUrl, videoTitle, resolution, bitrate, headers, preferred, subtitleTracks, audioTracks, timestamps, mpvArgs,
-        ffmpegStreamArgs, ffmpegVideoArgs, internalData, initialized, JsonObject.EMPTY,
+        ffmpegStreamArgs, ffmpegVideoArgs, internalData, initialized, JsonObject(emptyMap()),
     )
 
     // Ext lib 16 copy video
@@ -137,7 +136,7 @@ data class Video(
         ffmpegVideoArgs = ffmpegVideoArgs,
         internalData = internalData,
         initialized = initialized,
-        memo = JsonObject.EMPTY,
+        memo = JsonObject(emptyMap()),
     )
 
     @Transient
@@ -205,7 +204,7 @@ data class SerializableVideo(
     val ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
     val internalData: String = "",
     val initialized: Boolean = false,
-    val memo: JsonObject = JsonObject.EMPTY,
+    val memo: JsonObject = JsonObject(emptyMap()),
 ) {
 
     companion object {

@@ -108,6 +108,7 @@ import tachiyomi.domain.library.manga.LibraryManga
 import java.awt.Canvas
 import java.text.DateFormat
 import java.util.Date
+import kotlin.io.path.toUri
 
 fun main() = application {
     val dependencies = remember { DesktopDependencyContainer() }
@@ -241,7 +242,7 @@ private fun DesktopApplication(dependencies: DesktopDependencyContainer) {
                         DesktopRoute.Updates -> UpdatesScreen(dependencies.libraryRepository)
                         DesktopRoute.History -> HistoryScreen(dependencies.libraryRepository, searchFocusRequester)
                         DesktopRoute.Browse -> BrowseScreen(dependencies, navigator)
-                        DesktopRoute.Downloads -> DownloadsScreen(dependencies.directories.downloads.toString())
+                        DesktopRoute.Downloads -> DownloadsScreen(dependencies)
                         DesktopRoute.Settings -> SettingsScreen(dependencies)
                         DesktopRoute.Extensions -> ExtensionsScreen(dependencies)
                         is DesktopRoute.Source -> BrowseScreen(dependencies, navigator, currentRoute.sourceId)
@@ -790,12 +791,25 @@ private fun MangaDetailsScreen(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(current.value.items) { chapter ->
-                            InfoCard(
-                                title = chapter.name,
-                                subtitle = "${formatDate(chapter.dateUpload)} • ${chapter.url}",
-                                tags = listOf("Chapter ${chapter.number}"),
-                                modifier = Modifier.clickable { onOpenChapter(chapter) },
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                InfoCard(
+                                    title = chapter.name,
+                                    subtitle = "${formatDate(chapter.dateUpload)} • ${chapter.url}",
+                                    tags = listOf("Chapter ${chapter.number}"),
+                                    modifier = Modifier.clickable { onOpenChapter(chapter) },
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onOpenChapter(chapter) }) { Text("Read") }
+                                    Button(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                val pages = source?.getPageList(chapter).orEmpty()
+                                                dependencies.downloadEngine.enqueueMangaChapter(sourceId, details, chapter, pages, DesktopImageHeaders)
+                                            }.onFailure { dependencies.notificationService.notify("Download failed", it.message ?: it::class.simpleName.orEmpty()) }
+                                        }
+                                    }) { Text("Download") }
+                                }
+                            }
                         }
                     }
                 }
@@ -862,12 +876,26 @@ private fun AnimeDetailsScreen(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(current.value.items) { episode ->
-                            InfoCard(
-                                title = episode.name,
-                                subtitle = "${formatDate(episode.dateUpload)} • ${episode.url}",
-                                tags = listOf("Episode ${episode.number}"),
-                                modifier = Modifier.clickable { onOpenEpisode(episode) },
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                InfoCard(
+                                    title = episode.name,
+                                    subtitle = "${formatDate(episode.dateUpload)} • ${episode.url}",
+                                    tags = listOf("Episode ${episode.number}"),
+                                    modifier = Modifier.clickable { onOpenEpisode(episode) },
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onOpenEpisode(episode) }) { Text("Watch") }
+                                    Button(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                val video = source?.getVideoList(episode).orEmpty().firstOrNull()
+                                                    ?: error("No video source returned")
+                                                dependencies.downloadEngine.enqueueAnimeEpisode(sourceId, details, episode, video)
+                                            }.onFailure { dependencies.notificationService.notify("Download failed", it.message ?: it::class.simpleName.orEmpty()) }
+                                        }
+                                    }) { Text("Download") }
+                                }
+                            }
                         }
                     }
                 }
@@ -924,16 +952,18 @@ private fun ReaderScreen(
     }
 
     fun load() {
-        if (source == null) {
-            state = state.copy(loading = false, error = "Manga source $sourceId is not registered.")
-            return
-        }
         state = state.copy(loading = true, error = null)
         scope.launch {
             runCatching {
-                val pages = source.getPageList(chapter).sortedBy(SourcePageImage::index).mapIndexedNotNull { index, page ->
-                    val url = page.imageUrl ?: page.url.takeIf(String::isNotBlank)
-                    url?.let { ReaderPage(index = index, imageUrl = it, headers = DesktopImageHeaders) }
+                val offline = dependencies.downloadEngine.findChapter(sourceId, manga, chapter)
+                val pages = if (offline != null) {
+                    offline.pages.mapIndexed { index, path -> ReaderPage(index = index, imageUrl = path.toUri().toString()) }
+                } else {
+                    val activeSource = source ?: error("Manga source $sourceId is not registered.")
+                    activeSource.getPageList(chapter).sortedBy(SourcePageImage::index).mapIndexedNotNull { index, page ->
+                        val url = page.imageUrl ?: page.url.takeIf(String::isNotBlank)
+                        url?.let { ReaderPage(index = index, imageUrl = it, headers = DesktopImageHeaders) }
+                    }
                 }
                 val resume = dependencies.libraryRepository.getChapterProgress(sourceId, manga, chapter)
                 pages to resume
@@ -1089,14 +1119,16 @@ private fun PlayerScreen(
     }
 
     fun load() {
-        if (source == null) {
-            state = state.copy(loading = false, error = "Anime source $sourceId is not registered.")
-            return
-        }
         state = state.copy(loading = true, error = null)
         scope.launch {
             runCatching {
-                val videos = source.getVideoList(episode)
+                val offline = dependencies.downloadEngine.findEpisode(sourceId, anime, episode)
+                val videos = if (offline != null) {
+                    listOf(VideoSource(url = offline.file.toUri().toString(), quality = "Downloaded"))
+                } else {
+                    val activeSource = source ?: error("Anime source $sourceId is not registered.")
+                    activeSource.getVideoList(episode)
+                }
                 val progress = dependencies.libraryRepository.getEpisodeProgress(sourceId, anime, episode)
                 videos to progress
             }.onSuccess { (videos, progress) ->
@@ -1393,12 +1425,70 @@ private fun UpdatesScreen(repository: DesktopLibraryRepository) {
 }
 
 @Composable
-private fun DownloadsScreen(downloadPath: String) {
+private fun DownloadsScreen(dependencies: DesktopDependencyContainer) {
+    val downloads by dependencies.downloadEngine.items.collectAsState()
     ScreenScaffold("Downloads") {
-        Text("Desktop download worker is not started in this slice.")
-        Spacer(Modifier.height(8.dp))
-        Text("Default download directory: $downloadPath")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Default download directory: ${dependencies.directories.downloads}", modifier = Modifier.weight(1f))
+            Button(onClick = { dependencies.externalBrowser.open(dependencies.directories.downloads.toUri()) }) { Text("Open Folder") }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (downloads.isEmpty()) {
+            EmptyState("No desktop downloads queued yet. Use Download from manga chapters or anime episodes.")
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(downloads.sortedByDescending(DesktopDownloadItem::createdAt)) { item ->
+                    DownloadQueueCard(dependencies, item)
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun DownloadQueueCard(dependencies: DesktopDependencyContainer, item: DesktopDownloadItem) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SourceAvatar(item.mediaTitle)
+                Column(Modifier.weight(1f)) {
+                    Text(item.mediaTitle, fontWeight = FontWeight.Bold)
+                    Text("${item.itemTitle} • ${item.kind.name} • ${item.status.name}", style = MaterialTheme.typography.bodySmall)
+                    item.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
+                Text(item.progressLabel())
+            }
+            item.fraction?.let { CircularProgressIndicator(progress = { it.coerceIn(0f, 1f) }, modifier = Modifier.size(32.dp)) }
+            Text(item.targetPath.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { dependencies.downloadEngine.pause(item.id) }, enabled = item.status == DesktopDownloadStatus.Downloading || item.status == DesktopDownloadStatus.Queued) { Text("Pause") }
+                Button(onClick = { dependencies.downloadEngine.resume(item.id) }, enabled = item.status == DesktopDownloadStatus.Paused) { Text("Resume") }
+                Button(onClick = { dependencies.downloadEngine.retry(item.id) }, enabled = item.status == DesktopDownloadStatus.Failed) { Text("Retry") }
+                Button(onClick = { dependencies.downloadEngine.cancel(item.id) }, enabled = item.status == DesktopDownloadStatus.Downloading || item.status == DesktopDownloadStatus.Queued || item.status == DesktopDownloadStatus.Paused) { Text("Cancel") }
+                Button(onClick = { dependencies.downloadEngine.deleteFiles(item.id) }) { Text("Delete") }
+                Button(onClick = { dependencies.externalBrowser.open((item.targetPath.parent ?: item.targetPath).toUri()) }) { Text("Open Folder") }
+            }
+        }
+    }
+}
+
+private fun DesktopDownloadItem.progressLabel(): String {
+    return when {
+        totalUnits > 0 -> "$completedUnits/$totalUnits"
+        downloadedBytes > 0L -> formatBytes(downloadedBytes)
+        else -> status.name
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    val units = listOf("B", "KiB", "MiB", "GiB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit += 1
+    }
+    return if (unit == 0) "$bytes ${units[unit]}" else "%.1f %s".format(value, units[unit])
 }
 
 @Composable

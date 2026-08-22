@@ -1,5 +1,6 @@
 package eu.kanade.aniyomi.desktop
 
+import eu.kanade.tachiyomi.source.preference.DpapiSourceSecretStore
 import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
@@ -83,12 +84,17 @@ class DesktopPlatformFileSystem : PlatformFileSystem {
 }
 
 class DesktopSecureStorage : SecureStorage {
-    override fun read(key: String): String? = null
+    private val store = DpapiSourceSecretStore(DesktopSourcePreferenceStoresPath.resolve("desktop.secrets"))
 
-    override fun write(key: String, value: String): Boolean = false
+    override fun read(key: String): String? = store.getString(key)
 
-    override fun delete(key: String): Boolean = true
+    override fun write(key: String, value: String): Boolean = store.putString(key, value)
+
+    override fun delete(key: String): Boolean = store.delete(key)
 }
+
+private val DesktopSourcePreferenceStoresPath: Path
+    get() = DesktopAppDirectories().data.resolve("source-preferences")
 
 class DesktopExternalBrowser : ExternalBrowser {
     override fun open(uri: URI): Boolean {
