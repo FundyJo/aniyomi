@@ -17,4 +17,4 @@
 
 ## Decision
 
-No Ktor migration in this slice. The next step is a source/network compatibility map that keeps legacy Android APK extensions on OkHttp/RxJava/JSoup while introducing shared suspend/Flow contracts behind adapters.
+Ktor remains a good candidate for the platform implementation behind the new shared `NetworkClient` contract because it has Android, JVM, and iOS engines. This slice does not add Ktor dependencies yet: legacy Android APK extensions stay on OkHttp/RxJava/JSoup, while new multiplatform sources target neutral request/response/header/cookie/body models first. Engine selection should be validated against the repository's Kotlin/Native and dependency versions once Gradle can resolve Google Maven and reach Kotlin compilation.

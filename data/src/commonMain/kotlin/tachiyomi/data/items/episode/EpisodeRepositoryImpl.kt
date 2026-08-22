@@ -2,8 +2,6 @@ package tachiyomi.data.items.episode
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonObject
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.MemoColumnAdapter
 import tachiyomi.data.handlers.anime.AnimeDatabaseHandler
 import tachiyomi.domain.items.episode.model.Episode
@@ -41,8 +39,7 @@ class EpisodeRepositoryImpl(
                     episode.copy(id = lastInsertId)
                 }
             }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -86,8 +83,7 @@ class EpisodeRepositoryImpl(
     override suspend fun removeEpisodesWithIds(episodeIds: List<Long>) {
         try {
             handler.await { episodesQueries.removeEpisodesWithIds(episodeIds) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
+        } catch (_: Exception) {
         }
     }
 

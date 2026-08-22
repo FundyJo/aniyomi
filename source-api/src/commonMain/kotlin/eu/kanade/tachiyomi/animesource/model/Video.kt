@@ -1,11 +1,10 @@
 package eu.kanade.tachiyomi.animesource.model
 
-import android.net.Uri
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
-import okhttp3.Headers
+import eu.kanade.tachiyomi.source.network.HttpHeaders
 
 @Serializable
 data class Track(val url: String, val lang: String)
@@ -32,7 +31,7 @@ data class Video(
     val videoTitle: String = "",
     val resolution: Int? = null,
     val bitrate: Int? = null,
-    val headers: Headers? = null,
+    val headers: HttpHeaders? = null,
     val preferred: Boolean = false,
     val subtitleTracks: List<Track> = emptyList(),
     val audioTracks: List<Track> = emptyList(),
@@ -61,7 +60,7 @@ data class Video(
         url: String,
         quality: String,
         videoUrl: String?,
-        headers: Headers? = null,
+        headers: HttpHeaders? = null,
         subtitleTracks: List<Track> = emptyList(),
         audioTracks: List<Track> = emptyList(),
     ) : this(
@@ -80,8 +79,8 @@ data class Video(
         url: String,
         quality: String,
         videoUrl: String?,
-        uri: Uri? = null,
-        headers: Headers? = null,
+        uri: Any? = null,
+        headers: HttpHeaders? = null,
     ) : this(url, quality, videoUrl, headers)
 
     // Ext lib 16 constructor
@@ -91,7 +90,7 @@ data class Video(
         videoTitle: String = "",
         resolution: Int? = null,
         bitrate: Int? = null,
-        headers: Headers? = null,
+        headers: HttpHeaders? = null,
         preferred: Boolean = false,
         subtitleTracks: List<Track> = emptyList(),
         audioTracks: List<Track> = emptyList(),
@@ -113,7 +112,7 @@ data class Video(
         videoTitle: String = this.videoTitle,
         resolution: Int? = this.resolution,
         bitrate: Int? = this.bitrate,
-        headers: Headers? = this.headers,
+        headers: HttpHeaders? = this.headers,
         preferred: Boolean = this.preferred,
         subtitleTracks: List<Track> = this.subtitleTracks,
         audioTracks: List<Track> = this.audioTracks,
@@ -243,7 +242,7 @@ data class SerializableVideo(
                         sVid.bitrate,
                         sVid.headers
                             ?.flatMap { it.toList() }
-                            ?.let { Headers.headersOf(*it.toTypedArray()) },
+                            ?.let { HttpHeaders.of(*it.toTypedArray()) },
                         sVid.preferred,
                         sVid.subtitleTracks,
                         sVid.audioTracks,
