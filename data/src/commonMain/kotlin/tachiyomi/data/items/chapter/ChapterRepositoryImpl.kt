@@ -1,9 +1,6 @@
 package tachiyomi.data.items.chapter
 
 import kotlinx.coroutines.flow.Flow
-import logcat.LogPriority
-import tachiyomi.core.common.util.lang.toLong
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.handlers.manga.MangaDatabaseHandler
 import tachiyomi.domain.items.chapter.model.Chapter
 import tachiyomi.domain.items.chapter.model.ChapterUpdate
@@ -35,8 +32,7 @@ class ChapterRepositoryImpl(
                     chapter.copy(id = lastInsertId)
                 }
             }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -75,14 +71,13 @@ class ChapterRepositoryImpl(
     override suspend fun removeChaptersWithIds(chapterIds: List<Long>) {
         try {
             handler.await { chaptersQueries.removeChaptersWithIds(chapterIds) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
+        } catch (_: Exception) {
         }
     }
 
     override suspend fun getChapterByMangaId(mangaId: Long, applyScanlatorFilter: Boolean): List<Chapter> {
         return handler.awaitList {
-            chaptersQueries.getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
+            chaptersQueries.getChaptersByMangaId(mangaId, if (applyScanlatorFilter) 1 else 0, ::mapChapter)
         }
     }
 
@@ -113,7 +108,7 @@ class ChapterRepositoryImpl(
 
     override suspend fun getChapterByMangaIdAsFlow(mangaId: Long, applyScanlatorFilter: Boolean): Flow<List<Chapter>> {
         return handler.subscribeToList {
-            chaptersQueries.getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
+            chaptersQueries.getChaptersByMangaId(mangaId, if (applyScanlatorFilter) 1 else 0, ::mapChapter)
         }
     }
 

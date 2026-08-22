@@ -9,7 +9,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnimeEpisodeUpdate
 import eu.kanade.tachiyomi.animesource.model.SAnimeSeasonUpdate
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
-import rx.Observable
 
 /**
  * A basic interface for creating a source. It could be an online source, a local source, etc...
@@ -147,17 +146,11 @@ interface AnimeSource {
      */
     suspend fun getVideoList(hoster: Hoster): List<Video> = throw IllegalStateException("Not used")
 
-    @Deprecated("Use the combined suspend API instead", ReplaceWith("getAnimeSeasonUpdate"))
-    suspend fun getSeasonList(anime: SAnime): List<SAnime> = throw UnsupportedOperationException()
-
     @Deprecated("Use the hoster version instead")
     suspend fun getVideoList(episode: SEpisode): List<Video> = throw UnsupportedOperationException()
 
-    @Deprecated(
-        "Use the combined suspend API instead",
-        ReplaceWith("getAnimeEpisodeUpdate"),
-    )
-    fun fetchAnimeDetails(anime: SAnime): Observable<SAnime> = throw UnsupportedOperationException()
+    @Deprecated("Use the combined suspend API instead", ReplaceWith("getAnimeSeasonUpdate"))
+    suspend fun getSeasonList(anime: SAnime): List<SAnime> = throw UnsupportedOperationException()
 
     @Deprecated(
         "Use the combined suspend API instead",
@@ -170,16 +163,4 @@ interface AnimeSource {
         ReplaceWith("getAnimeEpisodeUpdate"),
     )
     suspend fun getEpisodeList(anime: SAnime): List<SEpisode> = throw UnsupportedOperationException()
-
-    @Deprecated(
-        "Use the non-RxJava API instead",
-        ReplaceWith("getEpisodeList"),
-    )
-    fun fetchEpisodeList(anime: SAnime): Observable<List<SEpisode>> = throw UnsupportedOperationException()
-
-    @Deprecated(
-        "Use the non-RxJava API instead",
-        ReplaceWith("getVideoList"),
-    )
-    fun fetchVideoList(episode: SEpisode): Observable<List<Video>> = throw UnsupportedOperationException()
 }

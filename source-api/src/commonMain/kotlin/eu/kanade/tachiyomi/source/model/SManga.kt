@@ -2,9 +2,7 @@
 
 package eu.kanade.tachiyomi.source.model
 
-import java.io.Serializable
-
-interface SManga : Serializable {
+interface SManga {
 
     var url: String
 

@@ -2,9 +2,7 @@
 
 package eu.kanade.tachiyomi.source.model
 
-import java.io.Serializable
-
-interface SChapter : Serializable {
+interface SChapter {
 
     var url: String
 

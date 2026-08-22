@@ -127,7 +127,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
         "Use the suspend API instead",
         ReplaceWith("getPopularAnime"),
     )
-    override fun fetchPopularAnime(page: Int): Observable<AnimesPage> {
+    fun fetchPopularAnime(page: Int): Observable<AnimesPage> {
         return client.newCall(popularAnimeRequest(page))
             .asObservableSuccess()
             .map { response ->
@@ -170,7 +170,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
         "Use the suspend API instead",
         ReplaceWith("getSearchAnime"),
     )
-    override fun fetchSearchAnime(page: Int, query: String, filters: AnimeFilterList): Observable<AnimesPage> {
+    fun fetchSearchAnime(page: Int, query: String, filters: AnimeFilterList): Observable<AnimesPage> {
         return client.newCall(searchAnimeRequest(page, query, filters))
             .asObservableSuccess()
             .map { response ->
@@ -216,7 +216,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
         "Use the suspend API instead",
         ReplaceWith("getLatestUpdates"),
     )
-    override fun fetchLatestUpdates(page: Int): Observable<AnimesPage> {
+    fun fetchLatestUpdates(page: Int): Observable<AnimesPage> {
         return client.newCall(latestUpdatesRequest(page))
             .asObservableSuccess()
             .map { response ->
@@ -253,7 +253,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
 
     @Suppress("DEPRECATION")
     @Deprecated("Use the combined suspend API instead", replaceWith = ReplaceWith("getAnimeEpisodeUpdate"))
-    override fun fetchAnimeDetails(anime: SAnime): Observable<SAnime> {
+    fun fetchAnimeDetails(anime: SAnime): Observable<SAnime> {
         return client.newCall(animeDetailsRequest(anime))
             .asObservableSuccess()
             .map { response ->
@@ -300,7 +300,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
 
     @Suppress("DEPRECATION")
     @Deprecated("Use the non-RxJava API instead", replaceWith = ReplaceWith("getEpisodeList"))
-    override fun fetchEpisodeList(anime: SAnime): Observable<List<SEpisode>> {
+    fun fetchEpisodeList(anime: SAnime): Observable<List<SEpisode>> {
         return client.newCall(episodeListRequest(anime))
             .asObservableSuccess()
             .map { response ->
@@ -550,7 +550,7 @@ abstract class AnimeHttpSource : AnimeCatalogueSource {
 
     @Suppress("DEPRECATION")
     @Deprecated("Use the suspend API instead", replaceWith = ReplaceWith("getVideoList"))
-    override fun fetchVideoList(episode: SEpisode): Observable<List<Video>> {
+    fun fetchVideoList(episode: SEpisode): Observable<List<Video>> {
         return client.newCall(videoListRequest(episode))
             .asObservableSuccess()
             .map { response ->

@@ -8,22 +8,32 @@ plugins {
 
 kotlin {
     androidTarget()
+    jvm("desktop")
+    iosArm64()
+    iosSimulatorArm64()
+
+    applyDefaultHierarchyTemplate()
+
     sourceSets {
         val commonMain by getting {
             dependencies {
                 api(kotlinx.serialization.json)
-                api(libs.injekt)
-                api(libs.rxjava)
-                api(libs.jsoup)
-                api(aniyomilibs.nanohttpd)
-
-                implementation(project.dependencies.platform(compose.bom))
-                implementation(compose.runtime)
+                api(kotlinx.coroutines.core)
+            }
+        }
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
             }
         }
         val androidMain by getting {
             dependencies {
                 implementation(projects.core.common)
+                api(libs.injekt)
+                api(libs.rxjava)
+                api(libs.jsoup)
+                api(libs.okhttp.core)
+                api(aniyomilibs.nanohttpd)
                 api(libs.preferencektx)
 
                 // Workaround for https://youtrack.jetbrains.com/issue/KT-57605
@@ -45,4 +55,42 @@ android {
     defaultConfig {
         consumerProguardFile("consumer-proguard.pro")
     }
+}
+
+val checkSourceApiCommonMainImports by tasks.registering {
+    group = "verification"
+    description = "Fails when source-api commonMain references platform-only APIs."
+
+    val commonMainDir = layout.projectDirectory.dir("src/commonMain/kotlin")
+    inputs.dir(commonMainDir)
+
+    doLast {
+        val forbidden = listOf(
+            Regex("\\bandroid\\."),
+            Regex("\\bandroidx\\."),
+            Regex("\\bjava\\."),
+            Regex("\\bjavax\\."),
+            Regex("\\bio\\.reactivex\\."),
+            Regex("\\bokhttp3\\."),
+            Regex("\\borg\\.jsoup\\."),
+            Regex("\\brx\\."),
+        )
+        val violations = commonMainDir.asFileTree.matching { include("**/*.kt") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    if (forbidden.any { it.containsMatchIn(line) }) {
+                        "${file.relativeTo(projectDir)}:${index + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+        check(violations.isEmpty()) {
+            "source-api commonMain contains platform-only references:\n${violations.joinToString("\n")}"
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(checkSourceApiCommonMainImports)
 }

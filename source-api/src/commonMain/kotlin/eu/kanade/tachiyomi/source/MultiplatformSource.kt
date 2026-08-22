@@ -1,25 +1,35 @@
 package eu.kanade.tachiyomi.source
 
+import eu.kanade.tachiyomi.source.network.HttpHeaders
 import kotlinx.serialization.Serializable
 
-interface MediaSource {
+interface MultiplatformSource {
     val id: Long
     val name: String
     val lang: String
     val capabilities: Set<SourceCapability>
-
-    suspend fun popular(page: Int): SourcePage
-
-    suspend fun latest(page: Int): SourcePage
-
-    suspend fun search(page: Int, query: String, filters: SourceFilters): SourcePage
-
-    suspend fun details(media: SourceMedia): SourceMedia
-
-    suspend fun episodes(media: SourceMedia): List<SourceEpisode>
-
-    suspend fun videos(episode: SourceEpisode): List<VideoSource>
 }
+
+interface MultiplatformAnimeSource : MultiplatformSource {
+    suspend fun getPopularAnime(page: Int): SourcePage<SourceMedia>
+    suspend fun getLatestAnime(page: Int): SourcePage<SourceMedia>
+    suspend fun searchAnime(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia>
+    suspend fun getAnimeDetails(anime: SourceMedia): SourceMedia
+    suspend fun getEpisodeList(anime: SourceMedia): List<SourceEpisode>
+    suspend fun getVideoList(episode: SourceEpisode): List<VideoSource>
+}
+
+interface MultiplatformMangaSource : MultiplatformSource {
+    suspend fun getPopularManga(page: Int): SourcePage<SourceMedia>
+    suspend fun getLatestManga(page: Int): SourcePage<SourceMedia>
+    suspend fun searchManga(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia>
+    suspend fun getMangaDetails(manga: SourceMedia): SourceMedia
+    suspend fun getChapterList(manga: SourceMedia): List<SourceEpisode>
+    suspend fun getPageList(chapter: SourceEpisode): List<SourcePageImage>
+}
+
+@Deprecated("Use MultiplatformAnimeSource or MultiplatformMangaSource")
+interface MediaSource : MultiplatformAnimeSource
 
 enum class SourceCapability {
     Network,
@@ -32,8 +42,8 @@ enum class SourceCapability {
 }
 
 @Serializable
-data class SourcePage(
-    val entries: List<SourceMedia>,
+data class SourcePage<T>(
+    val entries: List<T>,
     val hasNextPage: Boolean,
 )
 
@@ -55,6 +65,32 @@ data class SourceEpisode(
 )
 
 @Serializable
+data class SourcePageImage(
+    val index: Int,
+    val url: String = "",
+    val imageUrl: String? = null,
+)
+
+sealed class SourceFilter(open val name: String) {
+    data class Header(override val name: String) : SourceFilter(name)
+    data class Separator(override val name: String = "") : SourceFilter(name)
+    data class Select(override val name: String, val values: List<String>, val state: Int = 0) : SourceFilter(name)
+    data class Text(override val name: String, val state: String = "") : SourceFilter(name)
+    data class CheckBox(override val name: String, val state: Boolean = false) : SourceFilter(name)
+    data class TriState(override val name: String, val state: Int = STATE_IGNORE) : SourceFilter(name) {
+        companion object {
+            const val STATE_IGNORE = 0
+            const val STATE_INCLUDE = 1
+            const val STATE_EXCLUDE = 2
+        }
+    }
+    data class Group(override val name: String, val values: List<SourceFilter>) : SourceFilter(name)
+    data class Sort(override val name: String, val values: List<String>, val selection: Selection? = null) : SourceFilter(name) {
+        data class Selection(val index: Int, val ascending: Boolean)
+    }
+}
+
+@Serializable
 data class SourceFilters(
     val values: Map<String, String> = emptyMap(),
 )
@@ -63,7 +99,7 @@ data class SourceFilters(
 data class VideoSource(
     val url: String,
     val quality: String,
-    val headers: Map<String, String> = emptyMap(),
+    val headers: HttpHeaders = HttpHeaders.Empty,
     val subtitles: List<SourceSubtitle> = emptyList(),
     val audioTracks: List<SourceTrack> = emptyList(),
     val backupUrls: List<String> = emptyList(),

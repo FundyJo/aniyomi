@@ -1,22 +1,20 @@
 # Aniyomi Multiplatform Feature Parity
 
-| Feature | Android | Windows | iOS | Notes |
-| --- | --- | --- | --- | --- |
-| Core Domain | ✅ | 🚧 | 🚧 | KMP layout exists; Category, Anime/Manga/Episode/Chapter/Library, History, Updates models/contracts, and Tracking models/contracts are in `commonMain`; more slices pending. |
-| Database | ✅ | 🚧 | 🚧 | SQLDelight schemas and adapters moved to `commonMain`; Android driver factory preserves existing DB names; desktop/iOS driver factories added; repository migration and tests pending. |
-| Anime Library | ✅ | 🚧 | 🚧 | Anime domain/library models and sorting are common; preferences/data/UI remain Android-wired. |
-| Manga Library | ✅ | 🚧 | 🚧 | Manga domain/library models and sorting are common; preferences/data/UI remain Android-wired. |
-| Search | ✅ | 🚧 | 🚧 | Requires source/runtime migration. |
-| Anime Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
-| Manga Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
-| History | ✅ | 🚧 | 🚧 | Domain models/contracts/use cases and data repositories moved to `commonMain`; UI and platform behavior remain Android reference. |
-| Downloads | ✅ | 🚧 | 🚧 | Common download request, state, progress, queue item, and repository contracts added; platform workers remain Android-only. |
-| Reader | ✅ | 🚧 | 🚧 | Needs shared reader state and image pipeline. |
-| Player | ✅ | 🚧 | 🚧 | `MediaPlayerEngine` contract added. |
-| Tracking | ✅ | 🚧 | 🚧 | Models/repository contracts and simple grouping use cases moved to `commonMain`; OAuth/browser/token storage implementations remain platform-specific. |
-| Backup / Restore | ✅ | 🚧 | 🚧 | Needs secure cross-platform extraction/export work. |
-| Settings | ✅ | 🚧 | 🚧 | Preferences migration pending. |
-| Legacy APK Extensions | ✅ | N/A | N/A | Must remain Android-only. |
-| Multiplatform Sources | 🚧 | 🚧 | 🚧 | `MediaSource` contract exists; legacy Source API compatibility/network audit documented, adapters pending. |
+| Feature | Status | Notes |
+| --- | --- | --- |
+| Domain Core | Implemented / compile pending | Category, Anime, Manga, Episode, Chapter, Library, History, Updates, Tracking, Download contracts are in shared source sets from earlier slices. |
+| Data KMP Foundation | Implemented / compile pending | Shared SQLDelight schemas/migrations and platform driver factories exist; Gradle remains blocked before Kotlin compilation. |
+| SQLDelight Shared Schema | Implemented / compile pending | Shared schema/migration files are in `data/commonMain`. |
+| Android DB Driver | Implemented / compile pending | Existing DB names preserved; compile/runtime validation pending. |
+| Desktop DB Driver | Implemented / compile pending | Driver exists; desktop path behavior still needs real validation. |
+| iOS DB Driver | Implemented / compile pending | Native driver exists; sandbox path behavior still needs real validation. |
+| Shared Source Models | Implemented / compile pending | `SAnime`, `SManga`, `SEpisode`, `SChapter`, filters, `Page`, `Video`, and `Hoster` are platform-neutral in `source-api/commonMain`. |
+| Legacy Android Sources | Preserved / compile pending | `HttpSource`, `AnimeHttpSource`, parsed sources, JSoup helpers, preferences, and torrent helpers are isolated in `androidMain`. |
+| Shared Source API | Implemented / compile pending | `MultiplatformSource`, anime/manga contracts, source pages, filters, media, episode, page, video, subtitle, and track models are in `commonMain`. |
+| Shared Network API | Implemented / compile pending | `NetworkClient`, request/response/body, `HttpMethod`, `HttpHeaders`, and `Cookie` are in `commonMain`. |
+| Android Legacy Adapters | Implemented / compile pending | Android adapters map legacy anime/manga sources into the new multiplatform contracts. |
+| More Data Repositories | Partially implemented / compile pending | Anime relation, episode, chapter repositories plus entry mappers/sanitizers moved to `commonMain`; anime/manga repositories still need date/logging refactor. |
+| Extension Runtime | Not started | No iOS code loading, APK/JAR/DEX runtime, JS, WASM, or package runtime added in this slice. |
+| UI Migration | Not started | Android UI remains reference implementation; desktop/iOS UI intentionally untouched. |
 
-Legend: ✅ existing/reference, 🚧 migration pending, N/A not applicable.
+Legend: `Implemented / compile pending` means code is present but Gradle did not reach Kotlin compilation because external dependency resolution is blocked.

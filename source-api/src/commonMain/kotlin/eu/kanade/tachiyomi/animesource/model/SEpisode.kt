@@ -3,9 +3,7 @@
 package eu.kanade.tachiyomi.animesource.model
 
 import kotlinx.serialization.json.JsonObject
-import java.io.Serializable
-
-interface SEpisode : Serializable {
+interface SEpisode {
 
     var url: String
 
