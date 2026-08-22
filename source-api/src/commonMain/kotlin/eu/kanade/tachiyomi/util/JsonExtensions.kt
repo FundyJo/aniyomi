@@ -1,8 +1,7 @@
 package eu.kanade.tachiyomi.util
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 /**
  * App provided default [Json] instance. Configured as
@@ -15,4 +14,8 @@ import uy.kohesive.injekt.api.get
  *
  * @since extensions-lib 16
  */
-val defaultJson: Json = Injekt.get<Json>()
+@OptIn(ExperimentalSerializationApi::class)
+val defaultJson: Json = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}

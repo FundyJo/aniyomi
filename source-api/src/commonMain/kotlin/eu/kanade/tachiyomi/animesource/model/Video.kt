@@ -1,9 +1,11 @@
 package eu.kanade.tachiyomi.animesource.model
 
+import eu.kanade.tachiyomi.source.network.HttpHeaders
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import eu.kanade.tachiyomi.source.network.HttpHeaders
 
 @Serializable
 data class Track(val url: String, val lang: String)
@@ -240,7 +242,6 @@ data class SerializableVideo(
                         sVid.resolution,
                         sVid.bitrate,
                         sVid.headers
-                            ?.flatMap { it.toList() }
                             ?.let { HttpHeaders.of(*it.toTypedArray()) },
                         sVid.preferred,
                         sVid.subtitleTracks,

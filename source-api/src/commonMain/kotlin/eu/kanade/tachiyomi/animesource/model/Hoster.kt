@@ -2,7 +2,9 @@ package eu.kanade.tachiyomi.animesource.model
 
 import eu.kanade.tachiyomi.animesource.model.SerializableVideo.Companion.serialize
 import eu.kanade.tachiyomi.animesource.model.SerializableVideo.Companion.toVideoList
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
