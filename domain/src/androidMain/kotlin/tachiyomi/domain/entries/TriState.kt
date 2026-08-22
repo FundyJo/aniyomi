@@ -1,9 +1,3 @@
 package tachiyomi.domain.entries
 
-import tachiyomi.core.common.preference.TriState
-
-inline fun applyFilter(filter: TriState, predicate: () -> Boolean): Boolean = when (filter) {
-    TriState.DISABLED -> true
-    TriState.ENABLED_IS -> predicate()
-    TriState.ENABLED_NOT -> !predicate()
-}
+actual typealias TriState = tachiyomi.core.common.preference.TriState

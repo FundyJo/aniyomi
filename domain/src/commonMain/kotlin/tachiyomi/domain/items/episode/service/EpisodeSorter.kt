@@ -1,6 +1,5 @@
 package tachiyomi.domain.items.episode.service
 
-import tachiyomi.core.common.util.lang.compareToWithCollator
 import tachiyomi.domain.entries.anime.model.Anime
 import tachiyomi.domain.items.episode.model.Episode
 
@@ -22,8 +21,8 @@ fun getEpisodeSort(anime: Anime, sortDescending: Boolean = anime.sortDescending(
             false -> { e1, e2 -> e1.dateUpload.compareTo(e2.dateUpload) }
         }
         Anime.EPISODE_SORTING_ALPHABET -> when (sortDescending) {
-            true -> { e1, e2 -> e2.name.compareToWithCollator(e1.name) }
-            false -> { e1, e2 -> e1.name.compareToWithCollator(e2.name) }
+            true -> { e1, e2 -> e2.name.compareTo(e1.name, ignoreCase = true) }
+            false -> { e1, e2 -> e1.name.compareTo(e2.name, ignoreCase = true) }
         }
         else -> throw NotImplementedError("Invalid episode sorting method: ${anime.sorting}")
     }

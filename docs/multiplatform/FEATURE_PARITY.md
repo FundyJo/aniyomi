@@ -2,10 +2,10 @@
 
 | Feature | Android | Windows | iOS | Notes |
 | --- | --- | --- | --- | --- |
-| Core Domain | ✅ | 🚧 | 🚧 | KMP layout exists; category contracts are common, most models/use cases still pending. |
-| Database | ✅ | 🚧 | 🚧 | SQLDelight schemas remain Android-wired; driver split pending. |
-| Anime Library | ✅ | 🚧 | 🚧 | Android reference exists; shared migration pending. |
-| Manga Library | ✅ | 🚧 | 🚧 | Android reference exists; shared migration pending. |
+| Core Domain | ✅ | 🚧 | 🚧 | KMP layout exists; Category plus Anime/Manga/Episode/Chapter/Library model slices are in `commonMain`; more slices pending. |
+| Database | ✅ | 🚧 | 🚧 | SQLDelight schemas remain Android-wired; data/SQLDelight audit documented, driver split pending. |
+| Anime Library | ✅ | 🚧 | 🚧 | Anime domain/library models and sorting are common; preferences/data/UI remain Android-wired. |
+| Manga Library | ✅ | 🚧 | 🚧 | Manga domain/library models and sorting are common; preferences/data/UI remain Android-wired. |
 | Search | ✅ | 🚧 | 🚧 | Requires source/runtime migration. |
 | Anime Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
 | Manga Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
@@ -17,6 +17,6 @@
 | Backup / Restore | ✅ | 🚧 | 🚧 | Needs secure cross-platform extraction/export work. |
 | Settings | ✅ | 🚧 | 🚧 | Preferences migration pending. |
 | Legacy APK Extensions | ✅ | N/A | N/A | Must remain Android-only. |
-| Multiplatform Sources | 🚧 | 🚧 | 🚧 | `MediaSource` contract and package manifest model added. |
+| Multiplatform Sources | 🚧 | 🚧 | 🚧 | `MediaSource` contract exists; legacy Source API compatibility/network audit documented, adapters pending. |
 
 Legend: ✅ existing/reference, 🚧 migration pending, N/A not applicable.

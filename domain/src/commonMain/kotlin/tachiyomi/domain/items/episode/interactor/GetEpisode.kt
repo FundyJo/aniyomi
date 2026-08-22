@@ -1,7 +1,5 @@
 package tachiyomi.domain.items.episode.interactor
 
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.items.episode.model.Episode
 import tachiyomi.domain.items.episode.repository.EpisodeRepository
 
@@ -13,7 +11,6 @@ class GetEpisode(
         return try {
             episodeRepository.getEpisodeById(id)
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
             null
         }
     }
@@ -22,7 +19,6 @@ class GetEpisode(
         return try {
             episodeRepository.getEpisodeByUrlAndAnimeId(url, animeId)
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
             null
         }
     }
