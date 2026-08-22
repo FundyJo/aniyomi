@@ -6,12 +6,6 @@ import eu.kanade.tachiyomi.animesource.model.FetchType
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import java.util.Date
-
-object DateColumnAdapter : ColumnAdapter<Date, Long> {
-    override fun decode(databaseValue: Long): Date = Date(databaseValue)
-    override fun encode(value: Date): Long = value.time
-}
 
 private const val LIST_OF_STRINGS_SEPARATOR = ", "
 object StringListColumnAdapter : ColumnAdapter<List<String>, String> {

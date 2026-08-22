@@ -1,6 +1,8 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
     id("mihon.library")
-    kotlin("android")
+    kotlin("multiplatform")
     kotlin("plugin.serialization")
     alias(libs.plugins.sqldelight)
 }
@@ -11,39 +13,76 @@ android {
     defaultConfig {
         consumerProguardFiles("consumer-rules.pro")
     }
-
-    sqldelight {
-        databases {
-            create("Database") {
-                packageName.set("tachiyomi.data")
-                dialect(libs.sqldelight.dialects.sql)
-                schemaOutputDirectory.set(project.file("./src/main/sqldelight"))
-                srcDirs.from(project.file("./src/main/sqldelight"))
-            }
-            create("AnimeDatabase") {
-                packageName.set("tachiyomi.mi.data")
-                dialect(libs.sqldelight.dialects.sql)
-                schemaOutputDirectory.set(project.file("./src/main/sqldelightanime"))
-                srcDirs.from(project.file("./src/main/sqldelightanime"))
-            }
-        }
-    }
 }
 
 kotlin {
+    androidTarget()
+    jvm("desktop")
+    iosArm64()
+    iosSimulatorArm64()
+
+    applyDefaultHierarchyTemplate()
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation(projects.sourceApi)
+                implementation(projects.domain)
+                implementation(projects.core.common)
+
+                implementation(kotlinx.serialization.json)
+                implementation(kotlinx.serialization.json.okio)
+                implementation(kotlinx.serialization.protobuf)
+
+                api(libs.sqldelight.coroutines)
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+        androidMain {
+            dependencies {
+                api(libs.sqldelight.android.driver)
+                api(libs.sqldelight.android.paging)
+            }
+        }
+        desktopMain {
+            dependencies {
+                api(libs.sqldelight.sqlite.driver)
+            }
+        }
+        iosMain {
+            dependencies {
+                api(libs.sqldelight.native.driver)
+            }
+        }
+    }
+
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
     compilerOptions {
         optIn.add("kotlinx.serialization.ExperimentalSerializationApi")
+        freeCompilerArgs.addAll(
+            "-Xexpect-actual-classes",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        )
     }
 }
 
-dependencies {
-    implementation(projects.sourceApi)
-    implementation(projects.domain)
-    implementation(projects.core.common)
-
-    implementation(kotlinx.serialization.json)
-    implementation(kotlinx.serialization.json.okio)
-    implementation(kotlinx.serialization.protobuf)
-
-    api(libs.bundles.sqldelight)
+sqldelight {
+    databases {
+        create("Database") {
+            packageName.set("tachiyomi.data")
+            dialect(libs.sqldelight.dialects.sql)
+            schemaOutputDirectory.set(project.file("./src/commonMain/sqldelight"))
+            srcDirs.from(project.file("./src/commonMain/sqldelight"))
+        }
+        create("AnimeDatabase") {
+            packageName.set("tachiyomi.mi.data")
+            dialect(libs.sqldelight.dialects.sql)
+            schemaOutputDirectory.set(project.file("./src/commonMain/sqldelightanime"))
+            srcDirs.from(project.file("./src/commonMain/sqldelightanime"))
+        }
+    }
 }

@@ -65,7 +65,7 @@ class AnimeHistoryRepositoryImpl(
             handler.await {
                 animehistoryQueries.upsert(
                     historyUpdate.episodeId,
-                    historyUpdate.seenAt,
+                    historyUpdate.seenAt.time,
                 )
             }
         } catch (e: Exception) {

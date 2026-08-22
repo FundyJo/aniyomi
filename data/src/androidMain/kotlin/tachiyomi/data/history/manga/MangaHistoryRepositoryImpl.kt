@@ -64,7 +64,7 @@ class MangaHistoryRepositoryImpl(
             handler.await {
                 historyQueries.upsert(
                     historyUpdate.chapterId,
-                    historyUpdate.readAt,
+                    historyUpdate.readAt.time,
                     historyUpdate.sessionReadDuration,
                 )
             }

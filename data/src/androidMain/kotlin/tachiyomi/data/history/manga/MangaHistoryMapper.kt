@@ -9,12 +9,12 @@ object MangaHistoryMapper {
     fun mapMangaHistory(
         id: Long,
         chapterId: Long,
-        readAt: Date?,
+        readAt: Long?,
         readDuration: Long,
     ): MangaHistory = MangaHistory(
         id = id,
         chapterId = chapterId,
-        readAt = readAt,
+        readAt = readAt?.let(::Date),
         readDuration = readDuration,
     )
 
@@ -28,7 +28,7 @@ object MangaHistoryMapper {
         isFavorite: Boolean,
         coverLastModified: Long,
         chapterNumber: Double,
-        readAt: Date?,
+        readAt: Long?,
         readDuration: Long,
     ): MangaHistoryWithRelations = MangaHistoryWithRelations(
         id = historyId,
@@ -36,7 +36,7 @@ object MangaHistoryMapper {
         mangaId = mangaId,
         title = title,
         chapterNumber = chapterNumber,
-        readAt = readAt,
+        readAt = readAt?.let(::Date),
         readDuration = readDuration,
         coverData = MangaCover(
             mangaId = mangaId,

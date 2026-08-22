@@ -9,11 +9,11 @@ object AnimeHistoryMapper {
     fun mapAnimeHistory(
         id: Long,
         episodeId: Long,
-        seenAt: Date?,
+        seenAt: Long?,
     ): AnimeHistory = AnimeHistory(
         id = id,
         episodeId = episodeId,
-        seenAt = seenAt,
+        seenAt = seenAt?.let(::Date),
     )
 
     fun mapAnimeHistoryWithRelations(
@@ -26,14 +26,14 @@ object AnimeHistoryMapper {
         isFavorite: Boolean,
         coverLastModified: Long,
         episodeNumber: Double,
-        seenAt: Date?,
+        seenAt: Long?,
     ): AnimeHistoryWithRelations = AnimeHistoryWithRelations(
         id = historyId,
         episodeId = episodeId,
         animeId = animeId,
         title = title,
         episodeNumber = episodeNumber,
-        seenAt = seenAt,
+        seenAt = seenAt?.let(::Date),
         coverData = AnimeCover(
             animeId = animeId,
             sourceId = sourceId,

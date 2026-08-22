@@ -3,16 +3,9 @@ package eu.kanade.tachiyomi.di
 import android.app.Application
 import android.os.Build
 import androidx.core.content.ContextCompat
-import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import aniyomi.core.common.torrent.TorrentServerApi
 import aniyomi.core.common.torrent.TorrentServerUtils
-import app.cash.sqldelight.driver.android.AndroidSqliteDriver
-import data.History
-import data.Mangas
-import dataanime.Animehistory
-import dataanime.Animes
-import dataanime.Episodes
 import eu.kanade.domain.track.anime.store.DelayedAnimeTrackingStore
 import eu.kanade.domain.track.manga.store.DelayedMangaTrackingStore
 import eu.kanade.tachiyomi.BuildConfig
@@ -42,13 +35,11 @@ import nl.adaptivity.xmlutil.XmlDeclMode.Charset
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
-import tachiyomi.data.AnimeUpdateStrategyColumnAdapter
 import tachiyomi.data.Database
-import tachiyomi.data.DateColumnAdapter
-import tachiyomi.data.FetchTypeColumnAdapter
-import tachiyomi.data.MangaUpdateStrategyColumnAdapter
-import tachiyomi.data.MemoColumnAdapter
-import tachiyomi.data.StringListColumnAdapter
+import tachiyomi.data.database.AndroidDatabaseDriverFactory
+import tachiyomi.data.database.DatabaseDriverFactory
+import tachiyomi.data.database.createAnimeDatabase
+import tachiyomi.data.database.createMangaDatabase
 import tachiyomi.data.handlers.anime.AndroidAnimeDatabaseHandler
 import tachiyomi.data.handlers.anime.AnimeDatabaseHandler
 import tachiyomi.data.handlers.manga.AndroidMangaDatabaseHandler
@@ -75,85 +66,26 @@ class AppModule(val app: Application) : InjektModule {
     override fun InjektRegistrar.registerInjectables() {
         addSingleton(app)
 
-        val sqlDriverManga = AndroidSqliteDriver(
-            schema = Database.Schema,
+        val databaseDriverFactory = AndroidDatabaseDriverFactory(
             context = app,
-            name = "tachiyomi.db",
-            factory = if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            openHelperFactory = if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 // Support database inspector in Android Studio
                 FrameworkSQLiteOpenHelperFactory()
             } else {
                 RequerySQLiteOpenHelperFactory()
             },
-            callback = object : AndroidSqliteDriver.Callback(Database.Schema) {
-                override fun onOpen(db: SupportSQLiteDatabase) {
-                    super.onOpen(db)
-                    setPragma(db, "foreign_keys = ON")
-                    setPragma(db, "journal_mode = WAL")
-                    setPragma(db, "synchronous = NORMAL")
-                }
-                private fun setPragma(db: SupportSQLiteDatabase, pragma: String) {
-                    val cursor = db.query("PRAGMA $pragma")
-                    cursor.moveToFirst()
-                    cursor.close()
-                }
-            },
         )
+        addSingleton<DatabaseDriverFactory>(databaseDriverFactory)
 
-        val sqlDriverAnime = AndroidSqliteDriver(
-            schema = AnimeDatabase.Schema,
-            context = app,
-            name = "tachiyomi.animedb",
-            factory = if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // Support database inspector in Android Studio
-                FrameworkSQLiteOpenHelperFactory()
-            } else {
-                RequerySQLiteOpenHelperFactory()
-            },
-            callback = object : AndroidSqliteDriver.Callback(AnimeDatabase.Schema) {
-                override fun onOpen(db: SupportSQLiteDatabase) {
-                    super.onOpen(db)
-                    setPragma(db, "foreign_keys = ON")
-                    setPragma(db, "journal_mode = WAL")
-                    setPragma(db, "synchronous = NORMAL")
-                }
-                private fun setPragma(db: SupportSQLiteDatabase, pragma: String) {
-                    val cursor = db.query("PRAGMA $pragma")
-                    cursor.moveToFirst()
-                    cursor.close()
-                }
-            },
-        )
+        val sqlDriverManga = databaseDriverFactory.createMangaDriver()
+        val sqlDriverAnime = databaseDriverFactory.createAnimeDriver()
 
         addSingletonFactory {
-            Database(
-                driver = sqlDriverManga,
-                historyAdapter = History.Adapter(
-                    last_readAdapter = DateColumnAdapter,
-                ),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = MangaUpdateStrategyColumnAdapter,
-                ),
-            )
+            createMangaDatabase(sqlDriverManga)
         }
 
         addSingletonFactory {
-            AnimeDatabase(
-                driver = sqlDriverAnime,
-                animehistoryAdapter = Animehistory.Adapter(
-                    last_seenAdapter = DateColumnAdapter,
-                ),
-                animesAdapter = Animes.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = AnimeUpdateStrategyColumnAdapter,
-                    fetch_typeAdapter = FetchTypeColumnAdapter,
-                    memoAdapter = MemoColumnAdapter,
-                ),
-                episodesAdapter = Episodes.Adapter(
-                    memoAdapter = MemoColumnAdapter,
-                ),
-            )
+            createAnimeDatabase(sqlDriverAnime)
         }
 
         addSingletonFactory<MangaDatabaseHandler> {
