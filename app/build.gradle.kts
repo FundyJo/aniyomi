@@ -197,15 +197,15 @@ dependencies {
     implementation(projects.presentationWidget)
 
     // Compose
-    implementation(compose.activity)
-    implementation(compose.foundation)
-    implementation(compose.material3.core)
-    implementation(compose.material.icons)
-    implementation(compose.animation)
-    implementation(compose.animation.graphics)
-    debugImplementation(compose.ui.tooling)
-    implementation(compose.ui.tooling.preview)
-    implementation(compose.ui.util)
+    implementation(composeLibs.activity)
+    implementation(composeLibs.foundation)
+    implementation(composeLibs.material3.core)
+    implementation(composeLibs.material.icons)
+    implementation(composeLibs.animation)
+    implementation(composeLibs.animation.graphics)
+    debugImplementation(composeLibs.ui.tooling)
+    implementation(composeLibs.ui.tooling.preview)
+    implementation(composeLibs.ui.util)
 
     implementation(androidx.interpolator)
 

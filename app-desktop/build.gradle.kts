@@ -3,7 +3,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 plugins {
     kotlin("multiplatform")
     kotlin("plugin.compose")
-    alias(compose.plugins.jetbrains.compose)
+    alias(composeLibs.plugins.jetbrains.compose)
 }
 
 kotlin {
@@ -21,8 +21,8 @@ kotlin {
                 implementation(libs.jna)
                 implementation(libs.jna.platform)
                 implementation(libs.bundles.coil)
-                implementation(compose.desktop.currentOs)
-                implementation(compose.material3)
+                implementation(composeLibs.desktop.currentOs)
+                implementation(composeLibs.material3)
             }
         }
     }
