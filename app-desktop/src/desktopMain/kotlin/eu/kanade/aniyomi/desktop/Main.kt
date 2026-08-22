@@ -1547,6 +1547,8 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
         Spacer(Modifier.height(16.dp))
         JellyfinSettingsPanel(dependencies)
         Spacer(Modifier.height(16.dp))
+        BackupSettingsPanel(dependencies)
+        Spacer(Modifier.height(16.dp))
         listOf(
             "General",
             "Appearance",
@@ -1557,11 +1559,58 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
             "Network",
             "Sources",
             "Tracking",
+            "Backup",
             "Advanced",
             "About",
         ).forEach { group ->
             InfoCard(title = group, subtitle = settingSubtitle(group, dependencies), tags = emptyList())
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun BackupSettingsPanel(dependencies: DesktopDependencyContainer) {
+    var status by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Desktop Backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Exports library entries, history progress, chapter read progress, and episode watch progress. Secure tokens and cookies are not included.")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = {
+                    val target = dependencies.filePicker.saveFile("Export Aniyomi backup", "aniyomi-desktop-backup.json")
+                    if (target != null) {
+                        scope.launch {
+                            status = "Exporting…"
+                            status = runCatching { dependencies.backupService.exportTo(target).toStatus("Exported") }
+                                .getOrElse { "Export failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Export") }
+                Button(onClick = {
+                    val source = dependencies.filePicker.pickFile("Preview Aniyomi backup")
+                    if (source != null) {
+                        scope.launch {
+                            status = "Reading…"
+                            status = runCatching { dependencies.backupService.preview(source).toStatus("Preview") }
+                                .getOrElse { "Preview failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Preview") }
+                Button(onClick = {
+                    val source = dependencies.filePicker.pickFile("Restore Aniyomi backup")
+                    if (source != null) {
+                        scope.launch {
+                            status = "Restoring…"
+                            status = runCatching { dependencies.backupService.importFrom(source).toStatus("Restored") }
+                                .getOrElse { "Restore failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Restore") }
+            }
+            status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
     }
 }
@@ -1637,7 +1686,12 @@ private fun settingSubtitle(group: String, dependencies: DesktopDependencyContai
     "Sources" -> "BuiltinSourceRegistry (${dependencies.sourceRegistry.get(-1)?.name ?: "0 bundled sources"})"
     "About" -> "${dependencies.platformInfo.name} ${dependencies.platformInfo.version} (${dependencies.platformInfo.architecture})"
     "Tracking" -> "Jellyfin API tokens use Windows DPAPI-backed desktop source secret storage"
+    "Backup" -> "JSON import/export for library entries and progress; secrets are excluded"
     else -> "No desktop-specific preference bound yet"
+}
+
+private fun DesktopBackupSummary.toStatus(action: String): String {
+    return "$action ${path.fileName}: $mangaEntries manga, $chapters chapters, $animeEntries anime, $episodes episodes"
 }
 
 @Composable

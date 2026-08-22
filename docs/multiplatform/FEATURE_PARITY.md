@@ -34,7 +34,7 @@
 | Updates | Compile Pending | Desktop Updates screen reads real anime and manga update SQLDelight views. |
 | Downloads | Compile Pending | Desktop coroutine download engine now persists queue metadata, downloads MangaPill chapter pages and direct anime video files, exposes pause/resume/cancel/retry/delete/open-folder actions, and reader/player routes prefer completed local files; Kotlin compile and runtime validation remain pending. |
 | Tracking | Compile Pending | Desktop source secret storage uses Windows DPAPI via JNA for Jellyfin API tokens; non-Windows desktop reports unsupported instead of plaintext fallback. |
-| Backup | Not Started | Desktop backup import/export has not been implemented. |
+| Backup | Compile Pending | Desktop JSON backup export/preview/import now covers library entries plus manga chapter and anime episode progress while excluding secure tokens/cookies; compile/runtime validation remain pending. |
 | Settings | Compile Pending | Desktop settings include Jellyfin host/user/library fields, DPAPI-backed token save, and a real Test Connection action. |
 | Packaging | Compile Pending | Compose Desktop native distribution metadata is configured for MSI/EXE tasks; task execution is blocked before plugin resolution. |
 | UI Migration | Compile Pending | Desktop now has a Compose Desktop shell with a typed back stack, routed details, reader/player routes, and preserved sidebar on detail screens. |

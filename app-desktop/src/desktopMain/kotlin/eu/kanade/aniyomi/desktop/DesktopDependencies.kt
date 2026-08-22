@@ -28,6 +28,7 @@ class DesktopDependencyContainer(
     val extensionManager: DesktopExtensionManager = JarDesktopExtensionManager(directories.extensions, sourceRegistry)
     val globalSourceSearch: GlobalSourceSearch = GlobalSourceSearch(sourceRegistry)
     val libraryRepository: DesktopLibraryRepository = DesktopLibraryRepository(mangaDatabase, animeDatabase)
+    val backupService: DesktopBackupService = DesktopBackupService(libraryRepository)
 
     val secureStorage: SecureStorage = DesktopSecureStorage()
     val externalBrowser: ExternalBrowser = DesktopExternalBrowser()
