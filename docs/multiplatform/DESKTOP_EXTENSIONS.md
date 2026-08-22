@@ -58,7 +58,7 @@ Current desktop extension modules are packaged as trusted local JARs and can be 
 
 Candidate selection:
 
-- Anime: `aniyomiorg/aniyomi-extensions/src/all/jellyfin` was selected over Google Drive and Google Drive Index. It has real Popular, Latest, Search, Details, Episodes, and Video resolution paths; the desktop port removes Android preference UI and OkHttp interceptors, and uses the shared `NetworkClient` plus `SourcePreferenceStore` for `host_url`, `user_id`, `api_key`, and optional `library_id`.
+- Anime: `aniyomiorg/aniyomi-extensions/src/all/jellyfin` was selected over Google Drive and Google Drive Index. It has real Popular, Latest, Search, Details, Episodes, and Video resolution paths; the desktop port removes Android preference UI and OkHttp interceptors, and uses the shared `NetworkClient` plus `SourcePreferenceStore` for `host_url`, `user_id`, and optional `library_id`; `api_key` is read from the desktop `SourceSecretStore` backed by Windows DPAPI.
 - Manga: the public Aniyomi extension repository currently has no manga source modules, so `keiyoushi/extensions-source/src/en/mangapill` was selected as a compatible Tachiyomi/Mihon manga extension source. It is a small JSoup/HTML source with real Popular, Latest, Search, Details, Chapters, and Page resolution and no Android preference UI.
 
 Status:

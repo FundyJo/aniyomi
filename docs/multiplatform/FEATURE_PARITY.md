@@ -22,22 +22,22 @@
 | Desktop App Startup | Compile Pending | `app-desktop` is registered with Compose Multiplatform Desktop and a real `main() = application { ... }`; Gradle is still blocked before Kotlin compilation. |
 | Desktop Database | Compile Pending | Desktop startup constructs the real manga/anime SQLDelight databases using the desktop driver factory and app-data directories. |
 | Library | Compile Pending | Desktop Library screen reads real anime and manga favorites from SQLDelight library views with search, counts, categories, and bookmark state. |
-| Browse | Compile Pending | Desktop Browse screen uses the real `SourceRegistry`, shows loaded/failed desktop extensions, separates Anime/Manga sources, and can invoke selected-source Popular, Latest, and Search APIs. |
-| Search | Compile Pending | Desktop Global Search uses `GlobalSourceSearch`, shows loading, partial results, grouped source results, errors, retry, and empty states. |
-| Anime Details | Compile Pending | Selected desktop anime source results can load real source details and episode lists inline; full routed detail screens and library actions are still pending. |
-| Manga Details | Compile Pending | Selected desktop manga source results can load real source details and chapter lists inline; full routed detail screens and library actions are still pending. |
-| Episodes | Compile Pending | Episode lists returned by real anime source APIs are displayed from selected Browse results; watched/progress/download state and player routing are still pending. |
-| Chapters | Compile Pending | Chapter lists returned by real manga source APIs are displayed from selected Browse results; read/bookmark/download state and reader routing are still pending. |
-| Reader | Not Started | Desktop manga reader has not been implemented. |
-| Player | Not Started | Desktop media player/libmpv integration has not been implemented. |
+| Browse | Compile Pending | Desktop Browse screen uses the real `SourceRegistry`, shows loaded/failed desktop extensions, separates Anime/Manga sources, invokes Popular/Latest/Search, and routes result clicks to details. |
+| Search | Compile Pending | Desktop Global Search uses `GlobalSourceSearch`, shows loading/partial/error/retry states, and routes anime/manga result clicks to detail screens. |
+| Anime Details | Compile Pending | Routed anime detail screen loads real source details and episodes, shows cover/metadata/loading/error/retry states, and can add source entries to the SQLDelight anime library. |
+| Manga Details | Compile Pending | Routed manga detail screen loads real source details and chapters, shows cover/metadata/loading/error/retry states, and can add source entries to the SQLDelight manga library. |
+| Episodes | Compile Pending | Episode lists returned by real anime source APIs route to video resolution/player screen; progress persistence is implemented in desktop SQLDelight helpers. |
+| Chapters | Compile Pending | Chapter lists returned by real manga source APIs route to the desktop reader; page progress/read-threshold persistence is implemented in desktop SQLDelight helpers. |
+| Reader | Compile Pending | Desktop reader state, modes, toolbar, keyboard navigation, Coil memory/disk image loading, MangaPill page pipeline, and progress resume are implemented; runtime validation is pending. |
+| Player | Started / compile pending | Jellyfin episode video resolution routes to a player screen with controls and header visibility; embedded libmpv backend remains pending. |
 | History | Compile Pending | Desktop History screen reads real anime and manga history SQLDelight views. |
 | Updates | Compile Pending | Desktop Updates screen reads real anime and manga update SQLDelight views. |
-| Downloads | Not Started | Desktop screen shows the resolved download directory; the coroutine download worker is not implemented. |
-| Tracking | Not Started | Desktop secure storage refuses plaintext writes until DPAPI/Credential Manager integration is added. |
+| Downloads | Not Started | Desktop screen shows the resolved download directory; reader/player source flows are prioritized before the coroutine download worker. |
+| Tracking | Compile Pending | Desktop source secret storage uses Windows DPAPI via JNA for Jellyfin API tokens; non-Windows desktop reports unsupported instead of plaintext fallback. |
 | Backup | Not Started | Desktop backup import/export has not been implemented. |
-| Settings | Compile Pending | Desktop settings foundation lists real service-backed groups only; no fake preference toggles are added. |
+| Settings | Compile Pending | Desktop settings include Jellyfin host/user/library fields, DPAPI-backed token save, and a real Test Connection action. |
 | Packaging | Compile Pending | Compose Desktop native distribution metadata is configured for MSI/EXE tasks; task execution is blocked before plugin resolution. |
-| UI Migration | Started / compile pending | Desktop now has a Compose Desktop shell with permanent sidebar; Android UI remains the reference implementation and iOS UI is untouched. |
+| UI Migration | Started / compile pending | Desktop now has a Compose Desktop shell with a typed back stack, routed details, reader/player routes, and preserved sidebar on detail screens. |
 
 Legend: `Implemented / compile pending` means code is present but Gradle did not reach Kotlin compilation. `Compile Pending` means feature code exists but has not been compiler-validated because dependency resolution fails first. `Runtime Tested` is reserved for features launched and exercised in the desktop app. `Statically validated / compile pending` means source-set scans and model/API review passed locally, but compile/runtime validation remains pending.
 

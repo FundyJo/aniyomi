@@ -18,6 +18,7 @@ kotlin {
                 implementation(projects.sourceApi)
 
                 implementation(kotlinx.coroutines.core)
+                implementation(libs.bundles.coil)
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
             }
