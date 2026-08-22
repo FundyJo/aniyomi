@@ -46,6 +46,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "Aniyomi"
 include(":app")
+include(":app-desktop")
 include(":core-metadata")
 include(":core:archive")
 include(":core:common")
