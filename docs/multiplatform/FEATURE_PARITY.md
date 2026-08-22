@@ -2,6 +2,8 @@
 
 | Feature | Android | Windows | iOS | Notes |
 | --- | --- | --- | --- | --- |
+| Core Domain | ✅ | 🚧 | 🚧 | KMP layout exists; category contracts are common, most models/use cases still pending. |
+| Database | ✅ | 🚧 | 🚧 | SQLDelight schemas remain Android-wired; driver split pending. |
 | Anime Library | ✅ | 🚧 | 🚧 | Android reference exists; shared migration pending. |
 | Manga Library | ✅ | 🚧 | 🚧 | Android reference exists; shared migration pending. |
 | Search | ✅ | 🚧 | 🚧 | Requires source/runtime migration. |

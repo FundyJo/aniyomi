@@ -4,7 +4,8 @@
 
 - Current repository is a single Android application with shared library modules and several Android-only presentation/runtime modules.
 - Existing KMP usage is limited to `i18n`, `i18n-aniyomi`, `source-api`, and `source-local`; only Android targets are currently configured there.
-- `data`, `domain`, `core:common`, `presentation-core`, `presentation-widget`, and `app` still use Android/JVM source layouts and Android Gradle/Kotlin plugins.
+- `data`, `core:common`, `presentation-core`, `presentation-widget`, and `app` still use Android/JVM source layouts and Android Gradle/Kotlin plugins.
+- `domain` has been converted to a KMP source-set layout; the first neutral category contracts now live in `commonMain`, while the rest of the existing implementation is preserved in `androidMain`.
 - SQLDelight schemas are already centralized in `data`, with separate manga and anime databases plus migration folders.
 
 ## Gradle Modules
@@ -17,7 +18,7 @@
 | `core:platform` | New platform abstraction contracts | KMP Android/Desktop/iOS | First shared seam for filesystem, player, downloads, auth, web, notifications, and window APIs. |
 | `core-metadata` | Metadata serialization | Android library | Candidate for early KMP after `source-api` model cleanup. |
 | `data` | SQLDelight databases, repositories/data sources | Android library | Convert to SQLDelight KMP after driver abstractions and migration tests are in place. |
-| `domain` | Use cases and business models | Android library | High-priority KMP target; remove `unifile`, Android paging, and Android/JVM-only imports. |
+| `domain` | Use cases and business models | KMP Android/Desktop/iOS layout with first common category slice | Continue moving models, repository contracts, and pure use cases to `commonMain`; keep Android-only storage/source/paging code in `androidMain`. |
 | `source-api` | Legacy manga/anime source contracts | KMP Android-only target | Add desktop/iOS once Android/JVM leaks are isolated; new neutral source contract added. |
 | `source-local` | Local source implementation | KMP Android-only target | Needs filesystem abstraction before desktop/iOS targets. |
 | `presentation-core` | Compose UI primitives | Android Compose | Convert after adopting Compose Multiplatform dependencies. |
@@ -36,9 +37,21 @@ Approximate import counts from `android.*` / `androidx.*` imports:
 | `presentation-widget` | 168 | Glance app widgets; intentionally Android-only. |
 | `core:common` | 85 | Android/network/preferences/native helpers mixed with reusable utilities. |
 | `data` | 16 | SQLDelight Android driver and Android paging integration. |
-| `domain` | 7 | Android/JVM data types and paging leakage. |
+| `domain` | 7 | Remaining Android/JVM leakage is isolated to `androidMain`; `commonMain` category contracts have no Android imports. |
 | `source-api` | 15 | `android.net.Uri`, preferences, and legacy Android compatibility hooks. |
 | `source-local` | 9 | Local file access and Android resource/runtime usage. |
+
+## Domain Android Dependency Classification
+
+| Dependency | Location | Category | Migration action |
+| --- | --- | --- | --- |
+| `android.graphics.drawable.Drawable` | `AnimeExtension` | D | Keep Android-specific extension icon representation in `androidMain`; introduce neutral metadata later if desktop/iOS need icons. |
+| `android.content.Context`, `androidx.core.net.toUri` | `StorageManager` | C/D | Replace callers with filesystem/file-picker contracts before any common migration. |
+| `androidx.paging.PagingSource` | source repositories | B/C | Introduce neutral paging/search result contracts before repository interfaces move to common. |
+| Android test runner and SQLDelight Android paging artifact | `domain/build.gradle.kts` | D | Keep under Android source-set dependencies only. |
+| `androidx.compose.runtime.Immutable` | `Anime`, `Manga` | B | Remove or replace with a multiplatform-safe stability marker before moving these models. |
+| `java.io.Serializable` | several models | B | Use `DomainSerializable` expect/actual where common models must preserve Android/JVM serialization compatibility. |
+| `java.time.*`, `java.util.Date` | models/use cases | B | Review per model/use case; use `kotlinx-datetime` only where iOS common code requires it. |
 
 ## Critical Boundaries
 
@@ -62,9 +75,12 @@ Approximate import counts from `android.*` / `androidx.*` imports:
 Changed:
 - Added a dedicated `core:platform` KMP module for platform abstraction contracts.
 - Added a neutral `MediaSource` contract beside the legacy Android-compatible extension API.
+- Converted `domain` to a KMP module with `commonMain`, `commonTest`, `androidMain`, `desktopMain`, and `iosMain`.
+- Moved category models, category repository contracts, and read-only category interactors to `domain/commonMain`.
 
 Migrated:
-- No existing runtime implementation was moved in this slice; this avoids breaking Android behavior before abstractions are wired.
+- Existing Android domain implementation was preserved under `androidMain`.
+- `Category`, `CategoryUpdate`, `AnimeCategoryRepository`, `MangaCategoryRepository`, `GetAnimeCategories`, `GetVisibleAnimeCategories`, `GetMangaCategories`, and `GetVisibleMangaCategories` now compile from common source sets once dependencies are reachable.
 
 Android:
 - Existing Android app and legacy extension runtime remain the reference implementation.
@@ -80,5 +96,6 @@ Tests:
 
 Remaining blockers:
 - `source-api` common code still contains Android/JVM-only types.
-- `domain` and `data` are still Android Gradle modules.
+- Most `domain` models and use cases still remain in `androidMain`.
+- `data` is still an Android Gradle module.
 - Compose UI still uses AndroidX artifacts instead of Compose Multiplatform artifacts.

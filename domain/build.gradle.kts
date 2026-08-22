@@ -1,6 +1,8 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
     id("mihon.library")
-    kotlin("android")
+    kotlin("multiplatform")
     kotlin("plugin.serialization")
 }
 
@@ -14,25 +16,54 @@ android {
 }
 
 kotlin {
-    compilerOptions {
-        freeCompilerArgs.add("-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi")
+    androidTarget()
+    jvm("desktop")
+    iosArm64()
+    iosSimulatorArm64()
+
+    applyDefaultHierarchyTemplate()
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                api(kotlinx.coroutines.core)
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(kotlinx.coroutines.test)
+            }
+        }
+        androidMain {
+            dependencies {
+                implementation(projects.sourceApi)
+                implementation(projects.core.common)
+
+                implementation(project.dependencies.platform(kotlinx.coroutines.bom))
+                implementation(kotlinx.bundles.coroutines)
+                implementation(kotlinx.bundles.serialization)
+
+                implementation(libs.unifile)
+
+                api(libs.sqldelight.android.paging)
+
+                compileOnly(libs.compose.stablemarker)
+            }
+        }
+        androidUnitTest {
+            dependencies {
+                implementation(libs.bundles.test)
+                implementation(kotlinx.coroutines.test)
+            }
+        }
     }
-}
 
-dependencies {
-    implementation(projects.sourceApi)
-    implementation(projects.core.common)
-
-    implementation(platform(kotlinx.coroutines.bom))
-    implementation(kotlinx.bundles.coroutines)
-    implementation(kotlinx.bundles.serialization)
-
-    implementation(libs.unifile)
-
-    api(libs.sqldelight.android.paging)
-
-    compileOnly(libs.compose.stablemarker)
-
-    testImplementation(libs.bundles.test)
-    testImplementation(kotlinx.coroutines.test)
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-Xexpect-actual-classes",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        )
+    }
 }

@@ -27,7 +27,7 @@
 | Module class | commonMain | androidMain | desktopMain | iosMain |
 | --- | --- | --- | --- | --- |
 | Platform contracts | Shared interfaces/models | Android adapters | Windows/JVM adapters | iOS adapters |
-| Domain | Use cases/models | Android-only compatibility shims only | none when possible | none when possible |
+| Domain | Category models/repositories/read interactors; more slices pending | Existing Android implementation preserved | Source set present; category contracts available | Source set present; category contracts available |
 | Data | Repositories/SQLDelight generated APIs | Android driver | JDBC/native desktop driver | Native SQLite driver |
 | Source API | Neutral source contracts | APK extension adapter | KMP package/runtime | KMP package/runtime |
 | Presentation | Compose Multiplatform UI | Android host glue | Desktop host glue | iOS host glue |
