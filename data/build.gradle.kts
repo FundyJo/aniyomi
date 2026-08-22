@@ -24,7 +24,7 @@ kotlin {
     applyDefaultHierarchyTemplate()
 
     sourceSets {
-        commonMain {
+        val commonMain by getting {
             dependencies {
                 implementation(projects.sourceApi)
                 implementation(projects.domain)
@@ -36,23 +36,27 @@ kotlin {
                 api(libs.sqldelight.coroutines)
             }
         }
-        commonTest {
+
+        val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
             }
         }
-        androidMain {
+
+        val androidMain by getting {
             dependencies {
                 api(libs.sqldelight.android.driver)
                 api(libs.sqldelight.android.paging)
             }
         }
-        desktopMain {
+
+        val desktopMain by getting {
             dependencies {
                 api(libs.sqldelight.sqlite.driver)
             }
         }
-        iosMain {
+
+        val iosMain by getting {
             dependencies {
                 api(libs.sqldelight.native.driver)
             }

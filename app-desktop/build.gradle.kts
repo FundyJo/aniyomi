@@ -21,8 +21,8 @@ kotlin {
                 implementation(libs.jna)
                 implementation(libs.jna.platform)
                 implementation(libs.bundles.coil)
-                implementation(composeLibs.desktop.currentOs)
-                implementation(composeLibs.material3)
+                implementation(compose.desktop.currentOs)
+                implementation(compose.material3)
             }
         }
     }
