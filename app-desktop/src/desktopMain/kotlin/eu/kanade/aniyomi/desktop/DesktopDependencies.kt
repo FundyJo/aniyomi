@@ -3,7 +3,6 @@ package eu.kanade.aniyomi.desktop
 import app.cash.sqldelight.db.SqlDriver
 import eu.kanade.tachiyomi.source.BuiltinSourceRegistry
 import eu.kanade.tachiyomi.source.GlobalSourceSearch
-import eu.kanade.tachiyomi.source.SourceRegistry
 import eu.kanade.tachiyomi.source.network.KtorNetworkClient
 import eu.kanade.tachiyomi.source.network.NetworkClient
 import tachiyomi.data.Database
@@ -25,7 +24,8 @@ class DesktopDependencyContainer(
     val animeDatabase: AnimeDatabase = createAnimeDatabase(animeDriver)
 
     val networkClient: NetworkClient = KtorNetworkClient()
-    val sourceRegistry: SourceRegistry = BuiltinSourceRegistry()
+    val sourceRegistry: BuiltinSourceRegistry = BuiltinSourceRegistry()
+    val extensionManager: DesktopExtensionManager = JarDesktopExtensionManager(directories.extensions, sourceRegistry)
     val globalSourceSearch: GlobalSourceSearch = GlobalSourceSearch(sourceRegistry)
     val libraryRepository: DesktopLibraryRepository = DesktopLibraryRepository(mangaDatabase, animeDatabase)
 
@@ -40,6 +40,7 @@ class DesktopDependencyContainer(
         fileSystem.ensureDirectory(directories.data)
         fileSystem.ensureDirectory(directories.cache)
         fileSystem.ensureDirectory(directories.downloads)
+        fileSystem.ensureDirectory(directories.extensions)
         fileSystem.ensureDirectory(directories.logs)
     }
 }

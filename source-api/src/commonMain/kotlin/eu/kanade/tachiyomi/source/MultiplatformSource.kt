@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.source
 
 import eu.kanade.tachiyomi.source.network.HttpHeaders
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 interface MultiplatformSource {
@@ -8,6 +9,10 @@ interface MultiplatformSource {
     val name: String
     val lang: String
     val capabilities: Set<SourceCapability>
+}
+
+interface MultiplatformSourceFactory {
+    fun createSources(): List<MultiplatformSource>
 }
 
 interface MultiplatformAnimeSource : MultiplatformSource {
@@ -139,16 +144,29 @@ enum class SourceMediaStatus {
     OnHiatus,
 }
 
+enum class SourcePackageType {
+    @SerialName("anime")
+    Anime,
+
+    @SerialName("manga")
+    Manga,
+
+    @SerialName("mixed")
+    Mixed,
+}
+
 @Serializable
 data class SourcePackageManifest(
     val id: String,
     val name: String,
     val version: String,
     val language: String,
-    val sources: List<Long>,
+    val entryPoints: List<String>,
+    val type: SourcePackageType,
+    val sources: List<Long> = emptyList(),
     val icon: String? = null,
-    val capabilities: Set<SourceCapability>,
-    val checksumSha256: String,
-    val signature: String,
-    val hostAllowlist: Set<String>,
+    val capabilities: Set<SourceCapability> = emptySet(),
+    val checksumSha256: String? = null,
+    val signature: String? = null,
+    val hostAllowlist: Set<String> = emptySet(),
 )

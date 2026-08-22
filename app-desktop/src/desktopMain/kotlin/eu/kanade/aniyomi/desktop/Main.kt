@@ -77,6 +77,8 @@ import eu.kanade.tachiyomi.source.MultiplatformAnimeSource
 import eu.kanade.tachiyomi.source.MultiplatformMangaSource
 import eu.kanade.tachiyomi.source.MultiplatformSource
 import eu.kanade.tachiyomi.source.SearchState
+import eu.kanade.tachiyomi.source.SourceCapability
+import eu.kanade.tachiyomi.source.SourceEpisode
 import eu.kanade.tachiyomi.source.SourceMedia
 import eu.kanade.tachiyomi.source.SourceSearchResult
 import kotlinx.coroutines.launch
@@ -289,19 +291,61 @@ private fun LibraryColumn(
 @Composable
 private fun BrowseScreen(dependencies: DesktopDependencyContainer) {
     val sources by dependencies.sourceRegistry.sources().collectAsState(emptyList())
+    val extensions by dependencies.extensionManager.extensions.collectAsState(emptyList())
     var selectedSource by remember { mutableStateOf<MultiplatformSource?>(null) }
     val animeSources = sources.filterIsInstance<MultiplatformAnimeSource>()
     val mangaSources = sources.filterIsInstance<MultiplatformMangaSource>()
 
+    LaunchedEffect(Unit) {
+        dependencies.extensionManager.reload()
+    }
+
     ScreenScaffold("Browse") {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
             Column(Modifier.weight(0.9f).fillMaxHeight()) {
+                ExtensionStatusPanel(dependencies, extensions, onReload = { dependencies.extensionManager.reload() })
+                Spacer(Modifier.height(16.dp))
                 SourceSection("Anime Sources", animeSources, onClick = { selectedSource = it })
                 Spacer(Modifier.height(16.dp))
                 SourceSection("Manga Sources", mangaSources, onClick = { selectedSource = it })
             }
             Column(Modifier.weight(1.1f).fillMaxHeight()) {
-                GlobalSearchPanel(dependencies, selectedSource)
+                SelectedSourcePanel(selectedSource)
+                Spacer(Modifier.height(16.dp))
+                GlobalSearchPanel(dependencies)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExtensionStatusPanel(
+    dependencies: DesktopDependencyContainer,
+    extensions: List<DesktopExtension>,
+    onReload: suspend () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    Text("Desktop Extensions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Spacer(Modifier.height(8.dp))
+    Text(dependencies.directories.extensions.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(8.dp))
+    Button(onClick = { scope.launch { onReload() } }) { Text("Reload extensions") }
+    Spacer(Modifier.height(8.dp))
+    if (extensions.isEmpty()) {
+        EmptyState("Place JVM source extension JARs in the extensions folder.")
+    } else {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(160.dp)) {
+            items(extensions) { extension ->
+                val status = when (extension.status) {
+                    DesktopExtensionStatus.Loaded -> "Loaded ${extension.sources.size} source(s)"
+                    DesktopExtensionStatus.Invalid -> "Invalid"
+                    DesktopExtensionStatus.Failed -> "Failed: ${extension.error ?: "Unknown error"}"
+                }
+                InfoCard(
+                    title = extension.name,
+                    subtitle = "${extension.language.uppercase()} • ${extension.version} • $status",
+                    tags = listOfNotNull(extension.type?.name, extension.id),
+                )
             }
         }
     }
@@ -332,16 +376,157 @@ private fun SourceCard(source: MultiplatformSource, onClick: (MultiplatformSourc
     val interactionSource = remember { MutableInteractionSource() }
     InfoCard(
         title = source.name,
-        subtitle = "${source.lang.uppercase()} • ${source.id}",
+        subtitle = "${source.lang.uppercase()} • ${source.id} • ${sourceTypeLabel(source)}",
         tags = source.capabilities.map { it.name }.sorted(),
         modifier = Modifier.hoverable(interactionSource).combinedClickable(onClick = { onClick(source) }).focusable(),
     )
 }
 
 @Composable
+private fun SelectedSourcePanel(source: MultiplatformSource?) {
+    var query by remember(source) { mutableStateOf("") }
+    var loading by remember(source) { mutableStateOf(false) }
+    var error by remember(source) { mutableStateOf<String?>(null) }
+    var results by remember(source) { mutableStateOf<List<SourceMedia>>(emptyList()) }
+    var hasNextPage by remember(source) { mutableStateOf(false) }
+    var selectedMedia by remember(source) { mutableStateOf<SourceMedia?>(null) }
+    var details by remember(source) { mutableStateOf<SourceMedia?>(null) }
+    var items by remember(source) { mutableStateOf<List<SourceEpisode>>(emptyList()) }
+    val scope = rememberCoroutineScope()
+
+    fun loadResults(mode: String) {
+        val currentSource = source ?: return
+        loading = true
+        error = null
+        selectedMedia = null
+        details = null
+        items = emptyList()
+        scope.launch {
+            runCatching {
+                when (currentSource) {
+                    is MultiplatformAnimeSource -> when (mode) {
+                        "latest" -> currentSource.getLatestAnime(1)
+                        "search" -> currentSource.searchAnime(1, query.trim(), currentSource.getAnimeFilters())
+                        else -> currentSource.getPopularAnime(1)
+                    }
+                    is MultiplatformMangaSource -> when (mode) {
+                        "latest" -> currentSource.getLatestManga(1)
+                        "search" -> currentSource.searchManga(1, query.trim(), currentSource.getMangaFilters())
+                        else -> currentSource.getPopularManga(1)
+                    }
+                    else -> throw UnsupportedOperationException("Unsupported source type")
+                }
+            }.onSuccess { page ->
+                results = page.entries
+                hasNextPage = page.hasNextPage
+            }.onFailure { throwable ->
+                error = throwable.message ?: throwable::class.simpleName
+            }
+            loading = false
+        }
+    }
+
+    fun loadDetails(media: SourceMedia) {
+        val currentSource = source ?: return
+        selectedMedia = media
+        details = null
+        items = emptyList()
+        error = null
+        scope.launch {
+            runCatching {
+                when (currentSource) {
+                    is MultiplatformAnimeSource -> currentSource.getAnimeDetails(media) to currentSource.getEpisodeList(media)
+                    is MultiplatformMangaSource -> currentSource.getMangaDetails(media) to currentSource.getChapterList(media)
+                    else -> throw UnsupportedOperationException("Unsupported source type")
+                }
+            }.onSuccess { (mediaDetails, sourceItems) ->
+                details = mediaDetails
+                items = sourceItems
+            }.onFailure { throwable ->
+                error = throwable.message ?: throwable::class.simpleName
+            }
+        }
+    }
+
+    Text("Source", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    if (source == null) {
+        EmptyState("Select an anime or manga source to load real popular, latest, search, details, and episodes/chapters.")
+        return
+    }
+
+    Text("${source.name} • ${source.lang.uppercase()} • ${sourceTypeLabel(source)}")
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Button(onClick = { loadResults("popular") }, enabled = SourceCapability.Popular in source.capabilities) { Text("Popular") }
+        Button(onClick = { loadResults("latest") }, enabled = SourceCapability.Latest in source.capabilities) { Text("Latest") }
+    }
+    Spacer(Modifier.height(8.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text("Search ${source.name}") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { loadResults("search") }),
+            modifier = Modifier.weight(1f),
+        )
+        Button(onClick = { loadResults("search") }, enabled = SourceCapability.Search in source.capabilities) { Text("Search") }
+    }
+    Spacer(Modifier.height(12.dp))
+    when {
+        loading -> LoadingState("Loading ${source.name}")
+        error != null -> ErrorState("Source error", error.orEmpty(), retryLabel = null, onRetry = {})
+        results.isEmpty() -> EmptyState("No source results loaded yet.")
+        else -> SourceResultAndDetails(results, hasNextPage, selectedMedia, details, items, source, onMediaClick = ::loadDetails)
+    }
+}
+
+@Composable
+private fun SourceResultAndDetails(
+    results: List<SourceMedia>,
+    hasNextPage: Boolean,
+    selectedMedia: SourceMedia?,
+    details: SourceMedia?,
+    items: List<SourceEpisode>,
+    source: MultiplatformSource,
+    onMediaClick: (SourceMedia) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.height(280.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f).fillMaxHeight()) {
+            items(results) { media ->
+                SourceMediaRow(media, onClick = { onMediaClick(media) })
+            }
+            if (hasNextPage) item { Text("More results available", color = MaterialTheme.colorScheme.primary) }
+        }
+        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
+            val currentDetails = details ?: selectedMedia
+            if (currentDetails == null) {
+                EmptyState("Select a result to load details from the source.")
+            } else {
+                Text(currentDetails.title, fontWeight = FontWeight.Bold)
+                Text(currentDetails.status.name, style = MaterialTheme.typography.bodySmall)
+                currentDetails.description?.takeIf { it.isNotBlank() }?.let { description ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(description)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(if (source is MultiplatformAnimeSource) "Episodes" else "Chapters", fontWeight = FontWeight.Bold)
+                if (items.isEmpty()) {
+                    EmptyState("No ${if (source is MultiplatformAnimeSource) "episodes" else "chapters"} returned yet.")
+                } else {
+                    items.forEach { item ->
+                        Text(item.name, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun GlobalSearchPanel(
     dependencies: DesktopDependencyContainer,
-    selectedSource: MultiplatformSource?,
 ) {
     var query by remember { mutableStateOf("") }
     var state by remember { mutableStateOf<SearchState>(SearchState.Complete(emptyList())) }
@@ -356,9 +541,6 @@ private fun GlobalSearchPanel(
     }
 
     Text("Global Search", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-    if (selectedSource != null) {
-        Text("Selected: ${selectedSource.name}. Popular, latest, and source detail navigation are wired as desktop routes next.")
-    }
     Spacer(Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
@@ -419,11 +601,22 @@ private fun SearchResults(
 }
 
 @Composable
-private fun SourceMediaRow(media: SourceMedia) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+private fun SourceMediaRow(media: SourceMedia, onClick: (() -> Unit)? = null) {
+    val modifier = if (onClick == null) {
+        Modifier.fillMaxWidth().padding(vertical = 4.dp)
+    } else {
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(8.dp)
+    }
+    Column(modifier) {
         Text(media.title, fontWeight = FontWeight.Medium)
         Text(media.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+private fun sourceTypeLabel(source: MultiplatformSource): String = when (source) {
+    is MultiplatformAnimeSource -> "Anime"
+    is MultiplatformMangaSource -> "Manga"
+    else -> "Source"
 }
 
 @Composable
