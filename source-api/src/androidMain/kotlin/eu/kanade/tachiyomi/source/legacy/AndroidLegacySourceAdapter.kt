@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.source.legacy
 
 import eu.kanade.tachiyomi.animesource.AnimeSource
+import eu.kanade.tachiyomi.animesource.model.AnimeFilter
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -14,10 +16,12 @@ import eu.kanade.tachiyomi.source.SourceMediaStatus
 import eu.kanade.tachiyomi.source.SourcePage
 import eu.kanade.tachiyomi.source.SourcePageImage
 import eu.kanade.tachiyomi.source.VideoSource
+import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.network.HttpHeaders
+import kotlinx.coroutines.CancellationException
 
 class AndroidLegacyAnimeSourceAdapter(
     private val source: AnimeSource,
@@ -25,7 +29,18 @@ class AndroidLegacyAnimeSourceAdapter(
     override val id: Long = source.id
     override val name: String = source.name
     override val lang: String = source.lang
-    override val capabilities: Set<SourceCapability> = setOf(SourceCapability.Network)
+    override val capabilities: Set<SourceCapability> = buildSet {
+        add(SourceCapability.Anime)
+        add(SourceCapability.Popular)
+        add(SourceCapability.Search)
+        add(SourceCapability.Video)
+        add(SourceCapability.Network)
+        if (source.supportsLatest) add(SourceCapability.Latest)
+    }
+
+    override fun getAnimeFilters(): List<SourceFilter> {
+        return source.getFilterList().map(AnimeFilter<*>::toSourceFilter)
+    }
 
     override suspend fun getPopularAnime(page: Int): SourcePage<SourceMedia> {
         return source.getPopularAnime(page).let { pageResult ->
@@ -40,21 +55,37 @@ class AndroidLegacyAnimeSourceAdapter(
     }
 
     override suspend fun searchAnime(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia> {
-        return source.getSearchAnime(page, query, source.getFilterList()).let { pageResult ->
+        return source.getSearchAnime(page, query, filters.toAnimeFilterList()).let { pageResult ->
             SourcePage(pageResult.animes.map(SAnime::toSourceMedia), pageResult.hasNextPage)
         }
     }
 
     override suspend fun getAnimeDetails(anime: SourceMedia): SourceMedia {
-        return source.getAnimeDetails(anime.toSAnime()).toSourceMedia()
+        return source.getAnimeEpisodeUpdate(anime.toSAnime(), emptyList(), fetchDetails = true, fetchEpisodes = false)
+            .anime
+            .toSourceMedia()
     }
 
     override suspend fun getEpisodeList(anime: SourceMedia): List<SourceEpisode> {
-        return source.getEpisodeList(anime.toSAnime()).map(SEpisode::toSourceEpisode)
+        return source.getAnimeEpisodeUpdate(anime.toSAnime(), emptyList(), fetchDetails = false, fetchEpisodes = true)
+            .episodes
+            .map(SEpisode::toSourceEpisode)
     }
 
     override suspend fun getVideoList(episode: SourceEpisode): List<VideoSource> {
-        return source.getVideoList(episode.toSEpisode()).map { video ->
+        val legacyEpisode = episode.toSEpisode()
+        val videos = try {
+            source.getHosterList(legacyEpisode).flatMap { hoster -> source.getVideoList(hoster) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: UnsupportedOperationException) {
+            @Suppress("DEPRECATION")
+            source.getVideoList(legacyEpisode)
+        } catch (_: IllegalStateException) {
+            @Suppress("DEPRECATION")
+            source.getVideoList(legacyEpisode)
+        }
+        return videos.map { video ->
             VideoSource(
                 url = video.videoUrl,
                 quality = video.videoTitle,
@@ -72,7 +103,17 @@ class AndroidLegacyMangaSourceAdapter(
     override val id: Long = source.id
     override val name: String = source.name
     override val lang: String = source.lang
-    override val capabilities: Set<SourceCapability> = setOf(SourceCapability.Network)
+    override val capabilities: Set<SourceCapability> = buildSet {
+        add(SourceCapability.Manga)
+        add(SourceCapability.Popular)
+        add(SourceCapability.Search)
+        add(SourceCapability.Network)
+        if (source.supportsLatest) add(SourceCapability.Latest)
+    }
+
+    override fun getMangaFilters(): List<SourceFilter> {
+        return source.getFilterList().map(Filter<*>::toSourceFilter)
+    }
 
     override suspend fun getPopularManga(page: Int): SourcePage<SourceMedia> {
         return source.getPopularManga(page).let { pageResult ->
@@ -87,7 +128,7 @@ class AndroidLegacyMangaSourceAdapter(
     }
 
     override suspend fun searchManga(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia> {
-        return source.getSearchManga(page, query, FilterList()).let { pageResult ->
+        return source.getSearchManga(page, query, filters.toFilterList()).let { pageResult ->
             SourcePage(pageResult.mangas.map(SManga::toSourceMedia), pageResult.hasNextPage)
         }
     }
@@ -163,6 +204,86 @@ private fun SourceEpisode.toSChapter(): SChapter = SChapter.create().also {
     it.name = name
     it.date_upload = dateUpload
     it.chapter_number = number
+}
+
+private fun AnimeFilter<*>.toSourceFilter(): SourceFilter = when (this) {
+    is AnimeFilter.Header -> SourceFilter.Header(name)
+    is AnimeFilter.Separator -> SourceFilter.Separator(name)
+    is AnimeFilter.Select<*> -> SourceFilter.Select(name, values.map { it.toString() }, state)
+    is AnimeFilter.Text -> SourceFilter.Text(name, state)
+    is AnimeFilter.CheckBox -> SourceFilter.CheckBox(name, state)
+    is AnimeFilter.TriState -> SourceFilter.TriState(name, state)
+    is AnimeFilter.Group<*> -> SourceFilter.Group(
+        name,
+        state.filterIsInstance<AnimeFilter<*>>().map(AnimeFilter<*>::toSourceFilter),
+    )
+    is AnimeFilter.Sort -> SourceFilter.Sort(
+        name,
+        values.toList(),
+        state?.let { SourceFilter.Sort.Selection(it.index, it.ascending) },
+    )
+}
+
+private fun Filter<*>.toSourceFilter(): SourceFilter = when (this) {
+    is Filter.Header -> SourceFilter.Header(name)
+    is Filter.Separator -> SourceFilter.Separator(name)
+    is Filter.Select<*> -> SourceFilter.Select(name, values.map { it.toString() }, state)
+    is Filter.Text -> SourceFilter.Text(name, state)
+    is Filter.CheckBox -> SourceFilter.CheckBox(name, state)
+    is Filter.TriState -> SourceFilter.TriState(name, state)
+    is Filter.Group<*> -> SourceFilter.Group(
+        name,
+        state.filterIsInstance<Filter<*>>().map(Filter<*>::toSourceFilter),
+    )
+    is Filter.Sort -> SourceFilter.Sort(
+        name,
+        values.toList(),
+        state?.let { SourceFilter.Sort.Selection(it.index, it.ascending) },
+    )
+}
+
+private fun List<SourceFilter>.toAnimeFilterList(): AnimeFilterList {
+    return AnimeFilterList(map(SourceFilter::toAnimeFilter))
+}
+
+private fun SourceFilter.toAnimeFilter(): AnimeFilter<*> = when (this) {
+    is SourceFilter.Header -> AnimeFilter.Header(name)
+    is SourceFilter.Separator -> AnimeFilter.Separator(name)
+    is SourceFilter.Select -> object : AnimeFilter.Select<String>(name, values.toTypedArray(), state) {}
+    is SourceFilter.Text -> object : AnimeFilter.Text(name, state) {}
+    is SourceFilter.CheckBox -> object : AnimeFilter.CheckBox(name, state) {}
+    is SourceFilter.TriState -> object : AnimeFilter.TriState(name, state) {}
+    is SourceFilter.Group -> object : AnimeFilter.Group<AnimeFilter<*>>(
+        name,
+        values.map(SourceFilter::toAnimeFilter),
+    ) {}
+    is SourceFilter.Sort -> object : AnimeFilter.Sort(
+        name,
+        values.toTypedArray(),
+        selection?.let { AnimeFilter.Sort.Selection(it.index, it.ascending) },
+    ) {}
+}
+
+private fun List<SourceFilter>.toFilterList(): FilterList {
+    return FilterList(map(SourceFilter::toFilter))
+}
+
+private fun SourceFilter.toFilter(): Filter<*> = when (this) {
+    is SourceFilter.Header -> Filter.Header(name)
+    is SourceFilter.Separator -> Filter.Separator(name)
+    is SourceFilter.Select -> object : Filter.Select<String>(name, values.toTypedArray(), state) {}
+    is SourceFilter.Text -> object : Filter.Text(name, state) {}
+    is SourceFilter.CheckBox -> object : Filter.CheckBox(name, state) {}
+    is SourceFilter.TriState -> object : Filter.TriState(name, state) {}
+    is SourceFilter.Group -> object : Filter.Group<Filter<*>>(
+        name,
+        values.map(SourceFilter::toFilter),
+    ) {}
+    is SourceFilter.Sort -> object : Filter.Sort(
+        name,
+        values.toTypedArray(),
+        selection?.let { Filter.Sort.Selection(it.index, it.ascending) },
+    ) {}
 }
 
 private fun animeStatusToSourceMediaStatus(status: Int): SourceMediaStatus = when (status) {

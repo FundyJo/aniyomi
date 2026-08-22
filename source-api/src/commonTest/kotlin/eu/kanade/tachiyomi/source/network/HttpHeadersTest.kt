@@ -20,4 +20,30 @@ class HttpHeadersTest {
         assertFalse(HttpHeaders.Empty.contains("User-Agent"))
         assertEquals(emptyList(), HttpHeaders.Empty.getAll("User-Agent"))
     }
+
+    @Test
+    fun setReplacesExistingHeaderCaseInsensitively() {
+        val headers = HttpHeaders.of("User-Agent" to "Aniyomi", "user-agent" to "Extension")
+            .set("USER-AGENT", "Shared")
+
+        assertEquals(listOf("Shared"), headers.getAll("user-agent"))
+        assertEquals("Shared", headers.get("User-Agent"))
+    }
+
+    @Test
+    fun removeDeletesExistingHeaderCaseInsensitively() {
+        val headers = HttpHeaders.of("Range" to "bytes=0-", "Referer" to "https://example.org")
+            .remove("range")
+
+        assertFalse(headers.contains("RANGE"))
+        assertTrue(headers.contains("referer"))
+    }
+
+    @Test
+    fun iterationPreservesHeaderValues() {
+        val headers = HttpHeaders.of("A" to "1", "a" to "2", "B" to "3")
+
+        assertEquals(listOf("A" to "1", "A" to "2", "B" to "3"), headers.toList())
+        assertEquals(headers.toList(), headers.toList())
+    }
 }

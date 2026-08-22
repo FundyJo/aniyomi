@@ -69,3 +69,37 @@ kotlin {
         )
     }
 }
+
+val checkDomainCommonMainImports by tasks.registering {
+    group = "verification"
+    description = "Fails when domain commonMain references platform-only APIs."
+
+    val commonMainDir = layout.projectDirectory.dir("src/commonMain/kotlin")
+    inputs.dir(commonMainDir)
+
+    doLast {
+        val forbidden = listOf(
+            Regex("\\bandroid\\."),
+            Regex("\\bandroidx\\."),
+            Regex("\\bjava\\."),
+            Regex("\\bjavax\\."),
+        )
+        val violations = commonMainDir.asFileTree.matching { include("**/*.kt") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    if (forbidden.any { it.containsMatchIn(line) }) {
+                        "${file.relativeTo(projectDir)}:${index + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+        check(violations.isEmpty()) {
+            "domain commonMain contains platform-only references:\n${violations.joinToString("\n")}"
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(checkDomainCommonMainImports)
+}

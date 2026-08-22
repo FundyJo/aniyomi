@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.source.network
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -9,9 +10,9 @@ data class NetworkRequest(
     val method: HttpMethod = HttpMethod.Get,
     val headers: HttpHeaders = HttpHeaders.Empty,
     val body: NetworkBody? = null,
+    val timeoutMillis: Long? = null,
 )
 
-@Serializable
 data class NetworkResponse(
     val status: Int,
     val headers: HttpHeaders = HttpHeaders.Empty,
@@ -60,14 +61,20 @@ sealed interface NetworkBody {
 }
 
 sealed interface NetworkResponseBody {
-    suspend fun bytes(): ByteArray
+    suspend fun readBytes(): ByteArray
+
+    suspend fun bytes(): ByteArray = readBytes()
+
+    fun stream(): Flow<ByteArray>
 
     data class ByteArrayBody(private val value: ByteArray) : NetworkResponseBody {
-        override suspend fun bytes(): ByteArray = value
+        override suspend fun readBytes(): ByteArray = value
+
+        override fun stream(): Flow<ByteArray> = flowOf(value)
     }
 
     data class StreamBody(val chunks: Flow<ByteArray>) : NetworkResponseBody {
-        override suspend fun bytes(): ByteArray {
+        override suspend fun readBytes(): ByteArray {
             val parts = mutableListOf<ByteArray>()
             var totalSize = 0
             chunks.collect { chunk ->
@@ -82,6 +89,8 @@ sealed interface NetworkResponseBody {
             }
             return output
         }
+
+        override fun stream(): Flow<ByteArray> = chunks
     }
 }
 
@@ -91,7 +100,10 @@ data class Cookie(
     val value: String,
     val domain: String? = null,
     val path: String? = null,
+    val expiresAt: Long? = null,
     val expiresAtEpochMillis: Long? = null,
     val secure: Boolean = false,
     val httpOnly: Boolean = false,
+    val hostOnly: Boolean = domain == null,
+    val persistent: Boolean = expiresAt != null || expiresAtEpochMillis != null,
 )
