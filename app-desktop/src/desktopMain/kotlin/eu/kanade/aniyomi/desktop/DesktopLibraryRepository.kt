@@ -2,6 +2,15 @@ package eu.kanade.aniyomi.desktop
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import eu.kanade.tachiyomi.animesource.model.AnimeUpdateStrategy
+import eu.kanade.tachiyomi.animesource.model.FetchType
+import eu.kanade.tachiyomi.animesource.model.SAnime
+import eu.kanade.tachiyomi.source.SourceEpisode
+import eu.kanade.tachiyomi.source.SourceMedia
+import eu.kanade.tachiyomi.source.SourceMediaStatus
+import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import tachiyomi.data.Database
 import tachiyomi.data.entries.anime.AnimeMapper
 import tachiyomi.data.entries.manga.MangaMapper
@@ -122,4 +131,256 @@ class DesktopLibraryRepository(
         }.executeAsList()
         (anime + manga).sortedByDescending { it.dateUpload }
     }
+
+    suspend fun addMangaToLibrary(sourceId: Long, manga: SourceMedia): Long = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        mangaDatabase.transactionWithResult {
+            val existing = mangaDatabase.mangasQueries.getMangaByUrlAndSource(manga.url, sourceId).executeAsOneOrNull()
+            if (existing != null) {
+                mangaDatabase.mangasQueries.update(
+                    source = sourceId,
+                    url = manga.url,
+                    artist = null,
+                    author = null,
+                    description = manga.description,
+                    genre = emptyList(),
+                    title = manga.title,
+                    status = manga.status.toMangaStatus().toLong(),
+                    thumbnailUrl = manga.thumbnailUrl,
+                    favorite = true,
+                    lastUpdate = null,
+                    nextUpdate = null,
+                    initialized = true,
+                    viewer = null,
+                    chapterFlags = null,
+                    coverLastModified = null,
+                    dateAdded = now,
+                    updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+                    calculateInterval = null,
+                    version = null,
+                    isSyncing = null,
+                    mangaId = existing._id,
+                )
+                existing._id
+            } else {
+                mangaDatabase.mangasQueries.insert(
+                    source = sourceId,
+                    url = manga.url,
+                    artist = null,
+                    author = null,
+                    description = manga.description,
+                    genre = emptyList(),
+                    title = manga.title,
+                    status = manga.status.toMangaStatus().toLong(),
+                    thumbnailUrl = manga.thumbnailUrl,
+                    favorite = true,
+                    lastUpdate = 0,
+                    nextUpdate = 0,
+                    initialized = true,
+                    viewerFlags = 0,
+                    chapterFlags = 0,
+                    coverLastModified = 0,
+                    dateAdded = now,
+                    updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+                    calculateInterval = 0,
+                    version = 0,
+                )
+                mangaDatabase.mangasQueries.selectLastInsertedRowId().executeAsOne()
+            }
+        }
+    }
+
+    suspend fun addAnimeToLibrary(sourceId: Long, anime: SourceMedia): Long = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        animeDatabase.transactionWithResult {
+            val existing = animeDatabase.animesQueries.getAnimeByUrlAndSource(anime.url, sourceId).executeAsOneOrNull()
+            if (existing != null) {
+                animeDatabase.animesQueries.update(
+                    source = sourceId,
+                    url = anime.url,
+                    artist = null,
+                    author = null,
+                    description = anime.description,
+                    genre = emptyList(),
+                    title = anime.title,
+                    status = anime.status.toAnimeStatus().toLong(),
+                    thumbnailUrl = anime.thumbnailUrl,
+                    favorite = true,
+                    lastUpdate = null,
+                    nextUpdate = null,
+                    initialized = true,
+                    viewer = null,
+                    episodeFlags = null,
+                    coverLastModified = null,
+                    dateAdded = now,
+                    updateStrategy = AnimeUpdateStrategy.ALWAYS_UPDATE,
+                    calculateInterval = null,
+                    version = null,
+                    isSyncing = null,
+                    fetchType = FetchType.Episodes,
+                    parentId = null,
+                    seasonFlags = null,
+                    seasonNumber = null,
+                    seasonSourceOrder = null,
+                    backgroundUrl = null,
+                    backgroundLastModified = null,
+                    memo = null,
+                    animeId = existing._id,
+                )
+                existing._id
+            } else {
+                animeDatabase.animesQueries.insert(
+                    source = sourceId,
+                    url = anime.url,
+                    artist = null,
+                    author = null,
+                    description = anime.description,
+                    genre = emptyList(),
+                    title = anime.title,
+                    status = anime.status.toAnimeStatus().toLong(),
+                    thumbnailUrl = anime.thumbnailUrl,
+                    favorite = true,
+                    lastUpdate = 0,
+                    nextUpdate = 0,
+                    initialized = true,
+                    viewerFlags = 0,
+                    episodeFlags = 0,
+                    coverLastModified = 0,
+                    dateAdded = now,
+                    updateStrategy = AnimeUpdateStrategy.ALWAYS_UPDATE,
+                    calculateInterval = 0,
+                    version = 0,
+                    fetchType = FetchType.Episodes,
+                    parentId = null,
+                    seasonFlags = 0,
+                    seasonNumber = -1.0,
+                    seasonSourceOrder = 0,
+                    backgroundUrl = null,
+                    backgroundLastModified = 0,
+                    memo = buildJsonObject { },
+                )
+                animeDatabase.animesQueries.selectLastInsertedRowId().executeAsOne()
+            }
+        }
+    }
+
+    suspend fun getChapterProgress(sourceId: Long, manga: SourceMedia, chapter: SourceEpisode): Int = withContext(Dispatchers.IO) {
+        val mangaRow = mangaDatabase.mangasQueries.getMangaByUrlAndSource(manga.url, sourceId).executeAsOneOrNull() ?: return@withContext 0
+        mangaDatabase.chaptersQueries.getChapterByUrlAndMangaId(chapter.url, mangaRow._id).executeAsOneOrNull()?.last_page_read?.toInt() ?: 0
+    }
+
+    suspend fun saveChapterProgress(sourceId: Long, manga: SourceMedia, chapter: SourceEpisode, pageIndex: Int, totalPages: Int) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val mangaId = addMangaToLibrary(sourceId, manga)
+        val existing = mangaDatabase.chaptersQueries.getChapterByUrlAndMangaId(chapter.url, mangaId).executeAsOneOrNull()
+        val read = totalPages > 0 && pageIndex >= (totalPages - 1).coerceAtLeast((totalPages * 0.9f).toInt())
+        if (existing == null) {
+            mangaDatabase.chaptersQueries.insert(
+                mangaId = mangaId,
+                url = chapter.url,
+                name = chapter.name,
+                scanlator = null,
+                read = read,
+                bookmark = false,
+                lastPageRead = pageIndex.toLong(),
+                chapterNumber = chapter.number.toDouble(),
+                sourceOrder = 0,
+                dateFetch = now,
+                dateUpload = chapter.dateUpload,
+                version = 0,
+            )
+        } else {
+            mangaDatabase.chaptersQueries.update(
+                mangaId = mangaId,
+                url = chapter.url,
+                name = chapter.name,
+                scanlator = null,
+                read = read,
+                bookmark = null,
+                lastPageRead = pageIndex.toLong(),
+                chapterNumber = chapter.number.toDouble(),
+                sourceOrder = null,
+                dateFetch = now,
+                dateUpload = chapter.dateUpload,
+                version = null,
+                isSyncing = null,
+                chapterId = existing._id,
+            )
+        }
+    }
+
+    suspend fun getEpisodeProgress(sourceId: Long, anime: SourceMedia, episode: SourceEpisode): Long = withContext(Dispatchers.IO) {
+        val animeRow = animeDatabase.animesQueries.getAnimeByUrlAndSource(anime.url, sourceId).executeAsOneOrNull() ?: return@withContext 0
+        animeDatabase.episodesQueries.getEpisodeByUrlAndAnimeId(episode.url, animeRow._id).executeAsOneOrNull()?.last_second_seen ?: 0
+    }
+
+    suspend fun saveEpisodeProgress(sourceId: Long, anime: SourceMedia, episode: SourceEpisode, positionSeconds: Long, durationSeconds: Long) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val animeId = addAnimeToLibrary(sourceId, anime)
+        val existing = animeDatabase.episodesQueries.getEpisodeByUrlAndAnimeId(episode.url, animeId).executeAsOneOrNull()
+        val seen = durationSeconds > 0 && positionSeconds >= (durationSeconds * 0.9f).toLong()
+        if (existing == null) {
+            animeDatabase.episodesQueries.insert(
+                animeId = animeId,
+                url = episode.url,
+                name = episode.name,
+                scanlator = null,
+                seen = seen,
+                bookmark = false,
+                lastSecondSeen = positionSeconds,
+                totalSeconds = durationSeconds,
+                episodeNumber = episode.number.toDouble(),
+                sourceOrder = 0,
+                dateFetch = now,
+                dateUpload = episode.dateUpload,
+                version = 0,
+                summary = null,
+                previewUrl = null,
+                fillermark = false,
+                memo = buildJsonObject { },
+            )
+        } else {
+            animeDatabase.episodesQueries.update(
+                animeId = animeId,
+                url = episode.url,
+                name = episode.name,
+                scanlator = null,
+                seen = seen,
+                bookmark = null,
+                lastSecondSeen = positionSeconds,
+                totalSeconds = durationSeconds,
+                episodeNumber = episode.number.toDouble(),
+                sourceOrder = null,
+                dateFetch = now,
+                dateUpload = episode.dateUpload,
+                version = null,
+                isSyncing = null,
+                summary = null,
+                previewUrl = null,
+                fillermark = null,
+                memo = null,
+                episodeId = existing._id,
+            )
+        }
+    }
+}
+
+private fun SourceMediaStatus.toMangaStatus(): Int = when (this) {
+    SourceMediaStatus.Ongoing -> SManga.ONGOING
+    SourceMediaStatus.Completed -> SManga.COMPLETED
+    SourceMediaStatus.Licensed -> SManga.LICENSED
+    SourceMediaStatus.PublishingFinished -> SManga.PUBLISHING_FINISHED
+    SourceMediaStatus.Cancelled -> SManga.CANCELLED
+    SourceMediaStatus.OnHiatus -> SManga.ON_HIATUS
+    SourceMediaStatus.Unknown -> SManga.UNKNOWN
+}
+
+private fun SourceMediaStatus.toAnimeStatus(): Int = when (this) {
+    SourceMediaStatus.Ongoing -> SAnime.ONGOING
+    SourceMediaStatus.Completed -> SAnime.COMPLETED
+    SourceMediaStatus.Licensed -> SAnime.LICENSED
+    SourceMediaStatus.PublishingFinished -> SAnime.PUBLISHING_FINISHED
+    SourceMediaStatus.Cancelled -> SAnime.CANCELLED
+    SourceMediaStatus.OnHiatus -> SAnime.ON_HIATUS
+    SourceMediaStatus.Unknown -> SAnime.UNKNOWN
 }
