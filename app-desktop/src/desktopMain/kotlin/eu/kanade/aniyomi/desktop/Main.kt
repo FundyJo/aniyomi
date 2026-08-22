@@ -10,6 +10,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -108,6 +110,7 @@ import tachiyomi.domain.library.manga.LibraryManga
 import java.awt.Canvas
 import java.text.DateFormat
 import java.util.Date
+import kotlin.io.path.toUri
 
 fun main() = application {
     val dependencies = remember { DesktopDependencyContainer() }
@@ -193,9 +196,16 @@ private fun DesktopApplication(dependencies: DesktopDependencyContainer) {
     val navigator = remember { DesktopNavigator() }
     val searchFocusRequester = remember { FocusRequester() }
     var fullscreen by remember { mutableStateOf(false) }
+    val themeMode by dependencies.preferences.themeMode.collectAsState()
+    val systemDark = isSystemInDarkTheme()
     val route = navigator.current
+    val darkTheme = when (themeMode) {
+        DesktopThemeMode.System -> systemDark
+        DesktopThemeMode.Light -> false
+        DesktopThemeMode.Dark -> true
+    }
 
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
         Surface(
             modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -241,7 +251,7 @@ private fun DesktopApplication(dependencies: DesktopDependencyContainer) {
                         DesktopRoute.Updates -> UpdatesScreen(dependencies.libraryRepository)
                         DesktopRoute.History -> HistoryScreen(dependencies.libraryRepository, searchFocusRequester)
                         DesktopRoute.Browse -> BrowseScreen(dependencies, navigator)
-                        DesktopRoute.Downloads -> DownloadsScreen(dependencies.directories.downloads.toString())
+                        DesktopRoute.Downloads -> DownloadsScreen(dependencies)
                         DesktopRoute.Settings -> SettingsScreen(dependencies)
                         DesktopRoute.Extensions -> ExtensionsScreen(dependencies)
                         is DesktopRoute.Source -> BrowseScreen(dependencies, navigator, currentRoute.sourceId)
@@ -790,12 +800,25 @@ private fun MangaDetailsScreen(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(current.value.items) { chapter ->
-                            InfoCard(
-                                title = chapter.name,
-                                subtitle = "${formatDate(chapter.dateUpload)} • ${chapter.url}",
-                                tags = listOf("Chapter ${chapter.number}"),
-                                modifier = Modifier.clickable { onOpenChapter(chapter) },
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                InfoCard(
+                                    title = chapter.name,
+                                    subtitle = "${formatDate(chapter.dateUpload)} • ${chapter.url}",
+                                    tags = listOf("Chapter ${chapter.number}"),
+                                    modifier = Modifier.clickable { onOpenChapter(chapter) },
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onOpenChapter(chapter) }) { Text("Read") }
+                                    Button(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                val pages = source?.getPageList(chapter).orEmpty()
+                                                dependencies.downloadEngine.enqueueMangaChapter(sourceId, details, chapter, pages, DesktopImageHeaders)
+                                            }.onFailure { dependencies.notificationService.notify("Download failed", it.message ?: it::class.simpleName.orEmpty()) }
+                                        }
+                                    }) { Text("Download") }
+                                }
+                            }
                         }
                     }
                 }
@@ -862,12 +885,26 @@ private fun AnimeDetailsScreen(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(current.value.items) { episode ->
-                            InfoCard(
-                                title = episode.name,
-                                subtitle = "${formatDate(episode.dateUpload)} • ${episode.url}",
-                                tags = listOf("Episode ${episode.number}"),
-                                modifier = Modifier.clickable { onOpenEpisode(episode) },
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                InfoCard(
+                                    title = episode.name,
+                                    subtitle = "${formatDate(episode.dateUpload)} • ${episode.url}",
+                                    tags = listOf("Episode ${episode.number}"),
+                                    modifier = Modifier.clickable { onOpenEpisode(episode) },
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { onOpenEpisode(episode) }) { Text("Watch") }
+                                    Button(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                val video = source?.getVideoList(episode).orEmpty().firstOrNull()
+                                                    ?: error("No video source returned")
+                                                dependencies.downloadEngine.enqueueAnimeEpisode(sourceId, details, episode, video)
+                                            }.onFailure { dependencies.notificationService.notify("Download failed", it.message ?: it::class.simpleName.orEmpty()) }
+                                        }
+                                    }) { Text("Download") }
+                                }
+                            }
                         }
                     }
                 }
@@ -924,16 +961,18 @@ private fun ReaderScreen(
     }
 
     fun load() {
-        if (source == null) {
-            state = state.copy(loading = false, error = "Manga source $sourceId is not registered.")
-            return
-        }
         state = state.copy(loading = true, error = null)
         scope.launch {
             runCatching {
-                val pages = source.getPageList(chapter).sortedBy(SourcePageImage::index).mapIndexedNotNull { index, page ->
-                    val url = page.imageUrl ?: page.url.takeIf(String::isNotBlank)
-                    url?.let { ReaderPage(index = index, imageUrl = it, headers = DesktopImageHeaders) }
+                val offline = dependencies.downloadEngine.findChapter(sourceId, manga, chapter)
+                val pages = if (offline != null) {
+                    offline.pages.mapIndexed { index, path -> ReaderPage(index = index, imageUrl = path.toUri().toString()) }
+                } else {
+                    val activeSource = source ?: error("Manga source $sourceId is not registered.")
+                    activeSource.getPageList(chapter).sortedBy(SourcePageImage::index).mapIndexedNotNull { index, page ->
+                        val url = page.imageUrl ?: page.url.takeIf(String::isNotBlank)
+                        url?.let { ReaderPage(index = index, imageUrl = it, headers = DesktopImageHeaders) }
+                    }
                 }
                 val resume = dependencies.libraryRepository.getChapterProgress(sourceId, manga, chapter)
                 pages to resume
@@ -1089,14 +1128,16 @@ private fun PlayerScreen(
     }
 
     fun load() {
-        if (source == null) {
-            state = state.copy(loading = false, error = "Anime source $sourceId is not registered.")
-            return
-        }
         state = state.copy(loading = true, error = null)
         scope.launch {
             runCatching {
-                val videos = source.getVideoList(episode)
+                val offline = dependencies.downloadEngine.findEpisode(sourceId, anime, episode)
+                val videos = if (offline != null) {
+                    listOf(VideoSource(url = offline.file.toUri().toString(), quality = "Downloaded"))
+                } else {
+                    val activeSource = source ?: error("Anime source $sourceId is not registered.")
+                    activeSource.getVideoList(episode)
+                }
                 val progress = dependencies.libraryRepository.getEpisodeProgress(sourceId, anime, episode)
                 videos to progress
             }.onSuccess { (videos, progress) ->
@@ -1393,12 +1434,70 @@ private fun UpdatesScreen(repository: DesktopLibraryRepository) {
 }
 
 @Composable
-private fun DownloadsScreen(downloadPath: String) {
+private fun DownloadsScreen(dependencies: DesktopDependencyContainer) {
+    val downloads by dependencies.downloadEngine.items.collectAsState()
     ScreenScaffold("Downloads") {
-        Text("Desktop download worker is not started in this slice.")
-        Spacer(Modifier.height(8.dp))
-        Text("Default download directory: $downloadPath")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Default download directory: ${dependencies.directories.downloads}", modifier = Modifier.weight(1f))
+            Button(onClick = { dependencies.externalBrowser.open(dependencies.directories.downloads.toUri()) }) { Text("Open Folder") }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (downloads.isEmpty()) {
+            EmptyState("No desktop downloads queued yet. Use Download from manga chapters or anime episodes.")
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(downloads.sortedByDescending(DesktopDownloadItem::createdAt)) { item ->
+                    DownloadQueueCard(dependencies, item)
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun DownloadQueueCard(dependencies: DesktopDependencyContainer, item: DesktopDownloadItem) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SourceAvatar(item.mediaTitle)
+                Column(Modifier.weight(1f)) {
+                    Text(item.mediaTitle, fontWeight = FontWeight.Bold)
+                    Text("${item.itemTitle} • ${item.kind.name} • ${item.status.name}", style = MaterialTheme.typography.bodySmall)
+                    item.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
+                Text(item.progressLabel())
+            }
+            item.fraction?.let { CircularProgressIndicator(progress = { it.coerceIn(0f, 1f) }, modifier = Modifier.size(32.dp)) }
+            Text(item.targetPath.toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { dependencies.downloadEngine.pause(item.id) }, enabled = item.status == DesktopDownloadStatus.Downloading || item.status == DesktopDownloadStatus.Queued) { Text("Pause") }
+                Button(onClick = { dependencies.downloadEngine.resume(item.id) }, enabled = item.status == DesktopDownloadStatus.Paused) { Text("Resume") }
+                Button(onClick = { dependencies.downloadEngine.retry(item.id) }, enabled = item.status == DesktopDownloadStatus.Failed) { Text("Retry") }
+                Button(onClick = { dependencies.downloadEngine.cancel(item.id) }, enabled = item.status == DesktopDownloadStatus.Downloading || item.status == DesktopDownloadStatus.Queued || item.status == DesktopDownloadStatus.Paused) { Text("Cancel") }
+                Button(onClick = { dependencies.downloadEngine.deleteFiles(item.id) }) { Text("Delete") }
+                Button(onClick = { dependencies.externalBrowser.open((item.targetPath.parent ?: item.targetPath).toUri()) }) { Text("Open Folder") }
+            }
+        }
+    }
+}
+
+private fun DesktopDownloadItem.progressLabel(): String {
+    return when {
+        totalUnits > 0 -> "$completedUnits/$totalUnits"
+        downloadedBytes > 0L -> formatBytes(downloadedBytes)
+        else -> status.name
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    val units = listOf("B", "KiB", "MiB", "GiB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit += 1
+    }
+    return if (unit == 0) "$bytes ${units[unit]}" else "%.1f %s".format(value, units[unit])
 }
 
 @Composable
@@ -1406,14 +1505,28 @@ private fun ExtensionsScreen(dependencies: DesktopDependencyContainer) {
     val extensions by dependencies.extensionManager.extensions.collectAsState(emptyList())
     val sources by dependencies.sourceRegistry.sources().collectAsState(emptyList())
     val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { dependencies.extensionManager.reload() }
 
     ScreenScaffold("Extensions") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = { scope.launch { dependencies.extensionManager.reload() } }) { Text("Reload") }
+            Button(onClick = {
+                val jar = dependencies.filePicker.pickFile("Install desktop extension JAR")
+                if (jar != null) {
+                    scope.launch {
+                        status = "Installing…"
+                        status = runCatching {
+                            dependencies.extensionManager.installJar(jar)
+                            "Installed ${jar.fileName}"
+                        }.getOrElse { "Install failed: ${it.message ?: it::class.simpleName}" }
+                    }
+                }
+            }) { Text("Install JAR") }
             Button(onClick = { dependencies.externalBrowser.open(dependencies.directories.extensions.toUri()) }) { Text("Open Extensions Folder") }
         }
+        status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         Spacer(Modifier.height(12.dp))
         Text("Installed JARs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
@@ -1422,16 +1535,30 @@ private fun ExtensionsScreen(dependencies: DesktopDependencyContainer) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(260.dp)) {
                 items(extensions) { extension ->
-                    val status = when (extension.status) {
+                    val extensionStatus = when (extension.status) {
                         DesktopExtensionStatus.Loaded -> "Loaded"
                         DesktopExtensionStatus.Invalid -> "Invalid manifest"
                         DesktopExtensionStatus.Failed -> "Failed: ${extension.error ?: "Unknown error"}"
                     }
-                    InfoCard(
-                        title = extension.name,
-                        subtitle = "${extension.language.uppercase()} • ${extension.version} • $status",
-                        tags = listOfNotNull(extension.type?.name, extension.id) + extension.sources.map { it.name },
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        InfoCard(
+                            title = extension.name,
+                            subtitle = "${extension.language.uppercase()} • ${extension.version} • $extensionStatus",
+                            tags = listOfNotNull(extension.type?.name, extension.id) + extension.sources.map { it.name },
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { dependencies.externalBrowser.open(extension.packagePath.parent.toUri()) }) { Text("Open Folder") }
+                            Button(onClick = {
+                                scope.launch {
+                                    status = "Removing…"
+                                    status = runCatching {
+                                        dependencies.extensionManager.remove(extension)
+                                        "Removed ${extension.name}"
+                                    }.getOrElse { "Remove failed: ${it.message ?: it::class.simpleName}" }
+                                }
+                            }) { Text("Remove") }
+                        }
+                    }
                 }
             }
         }
@@ -1457,6 +1584,10 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
         Spacer(Modifier.height(16.dp))
         JellyfinSettingsPanel(dependencies)
         Spacer(Modifier.height(16.dp))
+        AppearanceSettingsPanel(dependencies)
+        Spacer(Modifier.height(16.dp))
+        BackupSettingsPanel(dependencies)
+        Spacer(Modifier.height(16.dp))
         listOf(
             "General",
             "Appearance",
@@ -1467,11 +1598,70 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
             "Network",
             "Sources",
             "Tracking",
+            "Backup",
             "Advanced",
             "About",
         ).forEach { group ->
             InfoCard(title = group, subtitle = settingSubtitle(group, dependencies), tags = emptyList())
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun AppearanceSettingsPanel(dependencies: DesktopDependencyContainer) {
+    val themeMode by dependencies.preferences.themeMode.collectAsState()
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Appearance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Theme changes are saved immediately and applied to the running desktop window.")
+            EnumMenu("Theme: ${themeMode.name}", DesktopThemeMode.entries) { dependencies.preferences.setThemeMode(it) }
+        }
+    }
+}
+
+@Composable
+private fun BackupSettingsPanel(dependencies: DesktopDependencyContainer) {
+    var status by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Desktop Backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Exports library entries, history progress, chapter read progress, and episode watch progress. Secure tokens and cookies are not included.")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = {
+                    val target = dependencies.filePicker.saveFile("Export Aniyomi backup", "aniyomi-desktop-backup.json")
+                    if (target != null) {
+                        scope.launch {
+                            status = "Exporting…"
+                            status = runCatching { dependencies.backupService.exportTo(target).toStatus("Exported") }
+                                .getOrElse { "Export failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Export") }
+                Button(onClick = {
+                    val source = dependencies.filePicker.pickFile("Preview Aniyomi backup")
+                    if (source != null) {
+                        scope.launch {
+                            status = "Reading…"
+                            status = runCatching { dependencies.backupService.preview(source).toStatus("Preview") }
+                                .getOrElse { "Preview failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Preview") }
+                Button(onClick = {
+                    val source = dependencies.filePicker.pickFile("Restore Aniyomi backup")
+                    if (source != null) {
+                        scope.launch {
+                            status = "Restoring…"
+                            status = runCatching { dependencies.backupService.importFrom(source).toStatus("Restored") }
+                                .getOrElse { "Restore failed: ${it.message ?: it::class.simpleName}" }
+                        }
+                    }
+                }) { Text("Restore") }
+            }
+            status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         }
     }
 }
@@ -1547,7 +1737,13 @@ private fun settingSubtitle(group: String, dependencies: DesktopDependencyContai
     "Sources" -> "BuiltinSourceRegistry (${dependencies.sourceRegistry.get(-1)?.name ?: "0 bundled sources"})"
     "About" -> "${dependencies.platformInfo.name} ${dependencies.platformInfo.version} (${dependencies.platformInfo.architecture})"
     "Tracking" -> "Jellyfin API tokens use Windows DPAPI-backed desktop source secret storage"
+    "Backup" -> "JSON import/export for library entries and progress; secrets are excluded"
+    "Appearance" -> "Theme mode persists as System, Light, or Dark"
     else -> "No desktop-specific preference bound yet"
+}
+
+private fun DesktopBackupSummary.toStatus(action: String): String {
+    return "$action ${path.fileName}: $mangaEntries manga, $chapters chapters, $animeEntries anime, $episodes episodes"
 }
 
 @Composable

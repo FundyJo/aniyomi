@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.jar.JarFile
 import kotlin.io.path.extension
 import kotlin.io.path.inputStream
@@ -25,6 +26,10 @@ interface DesktopExtensionManager {
     val extensions: StateFlow<List<DesktopExtension>>
 
     suspend fun reload()
+
+    suspend fun installJar(sourceJar: Path)
+
+    suspend fun remove(extension: DesktopExtension)
 }
 
 data class DesktopExtension(
@@ -71,6 +76,26 @@ class JarDesktopExtensionManager(
 
         mutableExtensions.value = discovered
         sourceRegistry.replace(discovered.flatMap { it.sources })
+    }
+
+    override suspend fun installJar(sourceJar: Path) {
+        require(sourceJar.isRegularFile() && sourceJar.extension.equals("jar", ignoreCase = true)) { "Select a desktop extension JAR" }
+        Files.createDirectories(extensionsDirectory)
+        val target = extensionsDirectory.resolve(sourceJar.fileName.toString())
+        Files.copy(sourceJar, target, StandardCopyOption.REPLACE_EXISTING)
+        reload()
+    }
+
+    override suspend fun remove(extension: DesktopExtension) {
+        closeClassLoaders()
+        runCatching {
+            if (extension.packagePath.isDirectory()) {
+                Files.walk(extension.packagePath).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) }
+            } else {
+                Files.deleteIfExists(extension.packagePath)
+            }
+        }
+        reload()
     }
 
     private fun discoverPackages(): List<Path> {

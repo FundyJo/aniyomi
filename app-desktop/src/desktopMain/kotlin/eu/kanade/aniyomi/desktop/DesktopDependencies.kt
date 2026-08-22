@@ -28,11 +28,14 @@ class DesktopDependencyContainer(
     val extensionManager: DesktopExtensionManager = JarDesktopExtensionManager(directories.extensions, sourceRegistry)
     val globalSourceSearch: GlobalSourceSearch = GlobalSourceSearch(sourceRegistry)
     val libraryRepository: DesktopLibraryRepository = DesktopLibraryRepository(mangaDatabase, animeDatabase)
+    val backupService: DesktopBackupService = DesktopBackupService(libraryRepository)
+    val preferences: DesktopPreferences = DesktopPreferences(directories.data.resolve("desktop-preferences.properties"))
 
     val secureStorage: SecureStorage = DesktopSecureStorage()
     val externalBrowser: ExternalBrowser = DesktopExternalBrowser()
     val clipboardService: ClipboardService = DesktopClipboardService()
     val notificationService: NotificationService = DesktopNotificationService()
+    val downloadEngine: DesktopDownloadEngine = DesktopDownloadEngine(directories.downloads, networkClient, notificationService)
     val filePicker: FilePicker = DesktopFilePicker()
     val platformInfo: PlatformInfo = currentPlatformInfo()
 

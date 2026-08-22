@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.animesource.model.SerializableVideo.Companion.toVideo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 
 open class Hoster(
     val hosterUrl: String = "",
@@ -13,7 +12,7 @@ open class Hoster(
     val videoList: List<Video>? = null,
     val internalData: String = "",
     val lazy: Boolean = false,
-    val memo: JsonObject = JsonObject.EMPTY,
+    val memo: JsonObject = JsonObject(emptyMap()),
 ) {
     @Transient
     @Volatile
@@ -39,7 +38,7 @@ open class Hoster(
         videoList = videoList,
         internalData = internalData,
         lazy = lazy,
-        memo = JsonObject.EMPTY,
+        memo = JsonObject(emptyMap()),
     )
 
     fun copy(
@@ -62,7 +61,7 @@ open class Hoster(
                     hosterUrl = "",
                     hosterName = NO_HOSTER_LIST,
                     videoList = this,
-                    memo = JsonObject.EMPTY,
+                    memo = JsonObject(emptyMap()),
                 ),
             )
         }
@@ -76,7 +75,7 @@ data class SerializableHoster(
     val videoList: String? = null,
     val internalData: String,
     val lazy: Boolean = false,
-    val memo: JsonObject = JsonObject.EMPTY,
+    val memo: JsonObject = JsonObject(emptyMap()),
 ) {
     companion object {
         fun List<Hoster>.serialize(): String =

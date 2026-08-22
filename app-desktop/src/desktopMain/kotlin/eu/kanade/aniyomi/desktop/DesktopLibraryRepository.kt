@@ -48,6 +48,168 @@ class DesktopLibraryRepository(
     private val mangaDatabase: Database,
     private val animeDatabase: AnimeDatabase,
 ) {
+    suspend fun createBackupSnapshot(): DesktopBackupSnapshot = withContext(Dispatchers.IO) {
+        val manga = mangaDatabase.mangasQueries.getFavorites().executeAsList().map { mangaRow ->
+            DesktopMangaBackup(
+                sourceId = mangaRow.source,
+                url = mangaRow.url,
+                title = mangaRow.title,
+                description = mangaRow.description,
+                thumbnailUrl = mangaRow.thumbnail_url,
+                status = mangaRow.status.toInt(),
+                chapters = mangaDatabase.chaptersQueries.getChaptersByMangaId(mangaRow._id, false).executeAsList().map { chapter ->
+                    DesktopChapterBackup(
+                        url = chapter.url,
+                        name = chapter.name,
+                        number = chapter.chapter_number,
+                        dateUpload = chapter.date_upload,
+                        lastPageRead = chapter.last_page_read,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                    )
+                },
+            )
+        }
+        val anime = animeDatabase.animesQueries.getFavorites().executeAsList().map { animeRow ->
+            DesktopAnimeBackup(
+                sourceId = animeRow.source,
+                url = animeRow.url,
+                title = animeRow.title,
+                description = animeRow.description,
+                thumbnailUrl = animeRow.thumbnail_url,
+                status = animeRow.status.toInt(),
+                episodes = animeDatabase.episodesQueries.getEpisodesByAnimeId(animeRow._id).executeAsList().map { episode ->
+                    DesktopEpisodeBackup(
+                        url = episode.url,
+                        name = episode.name,
+                        number = episode.episode_number,
+                        dateUpload = episode.date_upload,
+                        lastSecondSeen = episode.last_second_seen,
+                        totalSeconds = episode.total_seconds,
+                        seen = episode.seen,
+                        bookmark = episode.bookmark,
+                    )
+                },
+            )
+        }
+        DesktopBackupSnapshot(
+            version = 1,
+            createdAt = System.currentTimeMillis(),
+            manga = manga,
+            anime = anime,
+        )
+    }
+
+    suspend fun restoreBackupSnapshot(snapshot: DesktopBackupSnapshot) = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        snapshot.manga.forEach { mangaBackup ->
+            val mangaId = addMangaToLibrary(
+                mangaBackup.sourceId,
+                SourceMedia(
+                    url = mangaBackup.url,
+                    title = mangaBackup.title,
+                    thumbnailUrl = mangaBackup.thumbnailUrl,
+                    description = mangaBackup.description,
+                    status = mangaBackup.status.toMangaSourceStatus(),
+                ),
+            )
+            mangaBackup.chapters.forEach { chapter ->
+                val existing = mangaDatabase.chaptersQueries.getChapterByUrlAndMangaId(chapter.url, mangaId).executeAsOneOrNull()
+                if (existing == null) {
+                    mangaDatabase.chaptersQueries.insert(
+                        mangaId = mangaId,
+                        url = chapter.url,
+                        name = chapter.name,
+                        scanlator = null,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        lastPageRead = chapter.lastPageRead,
+                        chapterNumber = chapter.number,
+                        sourceOrder = 0,
+                        dateFetch = now,
+                        dateUpload = chapter.dateUpload,
+                        version = 0,
+                    )
+                } else {
+                    mangaDatabase.chaptersQueries.update(
+                        mangaId = mangaId,
+                        url = chapter.url,
+                        name = chapter.name,
+                        scanlator = null,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        lastPageRead = chapter.lastPageRead,
+                        chapterNumber = chapter.number,
+                        sourceOrder = null,
+                        dateFetch = now,
+                        dateUpload = chapter.dateUpload,
+                        version = null,
+                        isSyncing = null,
+                        chapterId = existing._id,
+                    )
+                }
+            }
+        }
+        snapshot.anime.forEach { animeBackup ->
+            val animeId = addAnimeToLibrary(
+                animeBackup.sourceId,
+                SourceMedia(
+                    url = animeBackup.url,
+                    title = animeBackup.title,
+                    thumbnailUrl = animeBackup.thumbnailUrl,
+                    description = animeBackup.description,
+                    status = animeBackup.status.toAnimeSourceStatus(),
+                ),
+            )
+            animeBackup.episodes.forEach { episode ->
+                val existing = animeDatabase.episodesQueries.getEpisodeByUrlAndAnimeId(episode.url, animeId).executeAsOneOrNull()
+                if (existing == null) {
+                    animeDatabase.episodesQueries.insert(
+                        animeId = animeId,
+                        url = episode.url,
+                        name = episode.name,
+                        scanlator = null,
+                        seen = episode.seen,
+                        bookmark = episode.bookmark,
+                        lastSecondSeen = episode.lastSecondSeen,
+                        totalSeconds = episode.totalSeconds,
+                        episodeNumber = episode.number,
+                        sourceOrder = 0,
+                        dateFetch = now,
+                        dateUpload = episode.dateUpload,
+                        version = 0,
+                        summary = null,
+                        previewUrl = null,
+                        fillermark = false,
+                        memo = buildJsonObject { },
+                    )
+                } else {
+                    animeDatabase.episodesQueries.update(
+                        animeId = animeId,
+                        url = episode.url,
+                        name = episode.name,
+                        scanlator = null,
+                        seen = episode.seen,
+                        bookmark = episode.bookmark,
+                        lastSecondSeen = episode.lastSecondSeen,
+                        totalSeconds = episode.totalSeconds,
+                        episodeNumber = episode.number,
+                        sourceOrder = null,
+                        dateFetch = now,
+                        dateUpload = episode.dateUpload,
+                        version = null,
+                        isSyncing = null,
+                        summary = null,
+                        previewUrl = null,
+                        fillermark = null,
+                        memo = null,
+                        episodeId = existing._id,
+                    )
+                }
+            }
+        }
+    }
+
     suspend fun getMangaLibrary(): List<LibraryManga> = withContext(Dispatchers.IO) {
         mangaDatabase.libraryViewQueries.library(MangaMapper::mapLibraryManga).executeAsList()
     }
@@ -383,4 +545,24 @@ private fun SourceMediaStatus.toAnimeStatus(): Int = when (this) {
     SourceMediaStatus.Cancelled -> SAnime.CANCELLED
     SourceMediaStatus.OnHiatus -> SAnime.ON_HIATUS
     SourceMediaStatus.Unknown -> SAnime.UNKNOWN
+}
+
+private fun Int.toMangaSourceStatus(): SourceMediaStatus = when (this) {
+    SManga.ONGOING -> SourceMediaStatus.Ongoing
+    SManga.COMPLETED -> SourceMediaStatus.Completed
+    SManga.LICENSED -> SourceMediaStatus.Licensed
+    SManga.PUBLISHING_FINISHED -> SourceMediaStatus.PublishingFinished
+    SManga.CANCELLED -> SourceMediaStatus.Cancelled
+    SManga.ON_HIATUS -> SourceMediaStatus.OnHiatus
+    else -> SourceMediaStatus.Unknown
+}
+
+private fun Int.toAnimeSourceStatus(): SourceMediaStatus = when (this) {
+    SAnime.ONGOING -> SourceMediaStatus.Ongoing
+    SAnime.COMPLETED -> SourceMediaStatus.Completed
+    SAnime.LICENSED -> SourceMediaStatus.Licensed
+    SAnime.PUBLISHING_FINISHED -> SourceMediaStatus.PublishingFinished
+    SAnime.CANCELLED -> SourceMediaStatus.Cancelled
+    SAnime.ON_HIATUS -> SourceMediaStatus.OnHiatus
+    else -> SourceMediaStatus.Unknown
 }
