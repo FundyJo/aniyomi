@@ -8,7 +8,7 @@ on:
       - 'docs/multiplatform/FEATURE_PARITY.md'
   push:
     branches:
-      - '*'
+      - '**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
