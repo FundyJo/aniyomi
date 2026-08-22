@@ -3,8 +3,9 @@
 ## Snapshot
 
 - Current repository is a single Android application with shared library modules and several Android-only presentation/runtime modules.
-- Existing KMP usage is limited to `i18n`, `i18n-aniyomi`, `source-api`, and `source-local`; only Android targets are currently configured there.
-- `data`, `domain`, `core:common`, `presentation-core`, `presentation-widget`, and `app` still use Android/JVM source layouts and Android Gradle/Kotlin plugins.
+- Existing KMP usage includes `core:platform`, `domain`, `i18n`, `i18n-aniyomi`, `source-api`, and `source-local`; several modules still only expose Android-compatible source sets.
+- `data`, `core:common`, `presentation-core`, `presentation-widget`, and `app` still use Android/JVM source layouts and Android Gradle/Kotlin plugins.
+- `domain` now declares Android, desktop JVM, `iosArm64`, and `iosSimulatorArm64` targets with an initial `commonMain` model/service slice.
 - SQLDelight schemas are already centralized in `data`, with separate manga and anime databases plus migration folders.
 
 ## Gradle Modules
@@ -17,7 +18,7 @@
 | `core:platform` | New platform abstraction contracts | KMP Android/Desktop/iOS | First shared seam for filesystem, player, downloads, auth, web, notifications, and window APIs. |
 | `core-metadata` | Metadata serialization | Android library | Candidate for early KMP after `source-api` model cleanup. |
 | `data` | SQLDelight databases, repositories/data sources | Android library | Convert to SQLDelight KMP after driver abstractions and migration tests are in place. |
-| `domain` | Use cases and business models | Android library | High-priority KMP target; remove `unifile`, Android paging, and Android/JVM-only imports. |
+| `domain` | Use cases and business models | KMP Android/Desktop/iOS with partial common source set | Continue moving pure models, repositories, and use cases to common; Android paging/storage remain in Android source set. |
 | `source-api` | Legacy manga/anime source contracts | KMP Android-only target | Add desktop/iOS once Android/JVM leaks are isolated; new neutral source contract added. |
 | `source-local` | Local source implementation | KMP Android-only target | Needs filesystem abstraction before desktop/iOS targets. |
 | `presentation-core` | Compose UI primitives | Android Compose | Convert after adopting Compose Multiplatform dependencies. |
@@ -36,7 +37,7 @@ Approximate import counts from `android.*` / `androidx.*` imports:
 | `presentation-widget` | 168 | Glance app widgets; intentionally Android-only. |
 | `core:common` | 85 | Android/network/preferences/native helpers mixed with reusable utilities. |
 | `data` | 16 | SQLDelight Android driver and Android paging integration. |
-| `domain` | 7 | Android/JVM data types and paging leakage. |
+| `domain` | 5 | Remaining Android leakage is limited to extension icons, source repository paging, and storage manager APIs in the Android source set. |
 | `source-api` | 15 | `android.net.Uri`, preferences, and legacy Android compatibility hooks. |
 | `source-local` | 9 | Local file access and Android resource/runtime usage. |
 
@@ -80,5 +81,25 @@ Tests:
 
 Remaining blockers:
 - `source-api` common code still contains Android/JVM-only types.
-- `domain` and `data` are still Android Gradle modules.
+- Most `domain` use cases and repository interfaces still need migration after paging/storage/date seams are introduced.
+- `data` is still an Android Gradle module.
 - Compose UI still uses AndroidX artifacts instead of Compose Multiplatform artifacts.
+
+## Domain Migration Slice
+
+Android dependency categories found in `domain`:
+
+| Dependency | Location | Category | Next action |
+| --- | --- | --- | --- |
+| `android.graphics.drawable.Drawable` | `AnimeExtension` icon model | D | Keep Android-specific until extension presentation/runtime models are split. |
+| `androidx.paging.PagingSource` | anime/manga source repositories | C | Introduce a neutral paging contract before moving repository interfaces to common. |
+| `android.content.Context` / `androidx.core.net.toUri` | `StorageManager` | C | Replace with `PlatformFileSystem`/file-picker APIs when storage flows migrate. |
+| `androidx.compose.runtime.Immutable` | `Anime`, `Manga` annotations | B | Decide whether to keep Compose metadata in common or move to neutral annotations before migrating these models. |
+| `java.util.Date` / `java.io.Serializable` | history/category/tracking models | B | Convert to common-safe date/value semantics only with compatibility adapters. |
+
+Moved to `domain/commonMain`:
+- `Chapter`, `ChapterUpdate`, `Episode`, `EpisodeUpdate`, `NoEpisodesException`.
+- Missing chapter/episode gap counting services.
+
+Added to `domain/commonTest`:
+- Platform-free coverage for missing item counts and recognized-number gap behavior.

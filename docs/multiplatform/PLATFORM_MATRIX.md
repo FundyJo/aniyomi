@@ -19,6 +19,7 @@
 | Window/layout | `WindowManager` | Activity/window metrics | Desktop window state | UIKit window/scene state | API added |
 | Android APK extensions | Existing legacy APIs | Supported | N/A | N/A | Preserved |
 | Multiplatform sources | `MediaSource` | Planned | Planned | Planned | Contract added |
+| Domain chapter/episode slice | Common models/services | Reused by Android domain | Metadata target declared | Metadata target declared | Partial common slice added |
 | Shizuku | Platform feature interface | Supported | Unsupported capability | Unsupported capability | Pending |
 | TorrServer/torrent | Torrent engine interface | Existing integration | Planned | Capability-gated | Pending |
 
@@ -27,7 +28,7 @@
 | Module class | commonMain | androidMain | desktopMain | iosMain |
 | --- | --- | --- | --- | --- |
 | Platform contracts | Shared interfaces/models | Android adapters | Windows/JVM adapters | iOS adapters |
-| Domain | Use cases/models | Android-only compatibility shims only | none when possible | none when possible |
+| Domain | Chapter/episode models and missing-item services started | Legacy Android-only sources retained while moving slices | none when possible | none when possible |
 | Data | Repositories/SQLDelight generated APIs | Android driver | JDBC/native desktop driver | Native SQLite driver |
 | Source API | Neutral source contracts | APK extension adapter | KMP package/runtime | KMP package/runtime |
 | Presentation | Compose Multiplatform UI | Android host glue | Desktop host glue | iOS host glue |
