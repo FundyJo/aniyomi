@@ -15,19 +15,19 @@
 | Ktor Engines | Implemented / compile pending | Android uses Ktor OkHttp, desktop uses CIO, and iOS uses Darwin; runtime validation is pending because Gradle is blocked before Kotlin compilation. |
 | Android Legacy Network Interop | Statically validated / compile pending | Header, cookie, and request conversions bridge shared network models to OkHttp without removing legacy Android OkHttp usage. |
 | Android Legacy Adapters | Statically validated / compile pending | Android adapters map legacy anime/manga sources, filters, details, episodes/chapters, pages, and videos into multiplatform contracts. |
-| Source Registry | Implemented / compile pending | Shared `SourceRegistry`, `BuiltinSourceRegistry`, Android legacy registry adapter infrastructure, and desktop `BuiltinSourceRegistry` wiring exist. |
+| Source Registry | Compile Pending | Shared `SourceRegistry`, `BuiltinSourceRegistry`, Android legacy registry adapter infrastructure, and desktop extension reload now replace desktop registry sources from validated JVM packages. |
 | Shared Global Search | Implemented / compile pending | Shared query/result/state/error models, concurrency-limited per-source isolation, partial result states, and desktop search UI are implemented. |
 | More Data Repositories | Implemented / compile pending | SQLDelight-backed repositories are in `commonMain`; additional `data` and `domain` import gates now guard Kotlin common source sets. |
-| Extension Runtime | Not started | No iOS code loading, APK/JAR/DEX runtime, JS, WASM, or package runtime added in this slice. |
+| Extension Runtime | Compile Pending | Desktop JVM extension package loading is implemented for isolated JARs with `META-INF/aniyomi-extension.json` or sidecar `extension.json`; package format is documented in `docs/multiplatform/DESKTOP_EXTENSIONS.md`; Android APK loading remains Android-only and iOS code loading remains unsupported. |
 | Desktop App Startup | Compile Pending | `app-desktop` is registered with Compose Multiplatform Desktop and a real `main() = application { ... }`; Gradle is still blocked before Kotlin compilation. |
 | Desktop Database | Compile Pending | Desktop startup constructs the real manga/anime SQLDelight databases using the desktop driver factory and app-data directories. |
 | Library | Compile Pending | Desktop Library screen reads real anime and manga favorites from SQLDelight library views with search, counts, categories, and bookmark state. |
-| Browse | Compile Pending | Desktop Browse screen uses the real `SourceRegistry` and separates Anime Sources and Manga Sources without fake source data. |
+| Browse | Compile Pending | Desktop Browse screen uses the real `SourceRegistry`, shows loaded/failed desktop extensions, separates Anime/Manga sources, and can invoke selected-source Popular, Latest, and Search APIs. |
 | Search | Compile Pending | Desktop Global Search uses `GlobalSourceSearch`, shows loading, partial results, grouped source results, errors, retry, and empty states. |
-| Anime Details | Not Started | Source selection exists, but anime detail navigation and episode loading are not implemented in this slice. |
-| Manga Details | Not Started | Source selection exists, but manga detail navigation and chapter loading are not implemented in this slice. |
-| Episodes | Not Started | Episode-list UI is not implemented yet. |
-| Chapters | Not Started | Chapter-list UI is not implemented yet. |
+| Anime Details | Compile Pending | Selected desktop anime source results can load real source details and episode lists inline; full routed detail screens and library actions are still pending. |
+| Manga Details | Compile Pending | Selected desktop manga source results can load real source details and chapter lists inline; full routed detail screens and library actions are still pending. |
+| Episodes | Compile Pending | Episode lists returned by real anime source APIs are displayed from selected Browse results; watched/progress/download state and player routing are still pending. |
+| Chapters | Compile Pending | Chapter lists returned by real manga source APIs are displayed from selected Browse results; read/bookmark/download state and reader routing are still pending. |
 | Reader | Not Started | Desktop manga reader has not been implemented. |
 | Player | Not Started | Desktop media player/libmpv integration has not been implemented. |
 | History | Compile Pending | Desktop History screen reads real anime and manga history SQLDelight views. |
@@ -41,4 +41,4 @@
 
 Legend: `Implemented / compile pending` means code is present but Gradle did not reach Kotlin compilation. `Compile Pending` means feature code exists but has not been compiler-validated because dependency resolution fails first. `Runtime Tested` is reserved for features launched and exercised in the desktop app. `Statically validated / compile pending` means source-set scans and model/API review passed locally, but compile/runtime validation remains pending.
 
-Current external blocker: Gradle still fails resolving `com.android.tools.build:gradle:8.9.1` from `dl.google.com` before Kotlin compilation starts.
+Current external blocker: Gradle still fails resolving `com.android.tools.build:gradle:8.9.1` from `dl.google.com` before Kotlin compilation starts; this was reproduced for `:app-desktop:compileKotlinDesktop`, `:source-api:compileKotlinDesktop`, and `:data:compileKotlinDesktop`.

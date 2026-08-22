@@ -15,6 +15,7 @@ interface AppDirectories {
     val data: Path
     val cache: Path
     val downloads: Path
+    val extensions: Path
     val logs: Path
 }
 
@@ -71,6 +72,8 @@ class DesktopAppDirectories : AppDirectories {
     }.resolve("Aniyomi")
 
     override val downloads: Path = userHome.resolve("Downloads").resolve("Aniyomi")
+
+    override val extensions: Path = data.resolve("extensions")
 
     override val logs: Path = cache.resolve("logs")
 }
