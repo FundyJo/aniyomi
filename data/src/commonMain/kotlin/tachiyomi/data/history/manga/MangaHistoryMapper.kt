@@ -1,9 +1,9 @@
 package tachiyomi.data.history.manga
 
 import tachiyomi.domain.entries.manga.model.MangaCover
+import tachiyomi.domain.history.historyTimestampFromEpochMilliseconds
 import tachiyomi.domain.history.manga.model.MangaHistory
 import tachiyomi.domain.history.manga.model.MangaHistoryWithRelations
-import java.util.Date
 
 object MangaHistoryMapper {
     fun mapMangaHistory(
@@ -14,7 +14,7 @@ object MangaHistoryMapper {
     ): MangaHistory = MangaHistory(
         id = id,
         chapterId = chapterId,
-        readAt = readAt?.let(::Date),
+        readAt = readAt?.let(::historyTimestampFromEpochMilliseconds),
         readDuration = readDuration,
     )
 
@@ -36,7 +36,7 @@ object MangaHistoryMapper {
         mangaId = mangaId,
         title = title,
         chapterNumber = chapterNumber,
-        readAt = readAt?.let(::Date),
+        readAt = readAt?.let(::historyTimestampFromEpochMilliseconds),
         readDuration = readDuration,
         coverData = MangaCover(
             mangaId = mangaId,

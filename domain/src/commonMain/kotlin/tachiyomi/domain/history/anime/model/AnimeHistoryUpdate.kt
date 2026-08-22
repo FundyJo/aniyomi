@@ -1,8 +1,8 @@
 package tachiyomi.domain.history.anime.model
 
-import java.util.Date
+import tachiyomi.domain.history.HistoryTimestamp
 
 data class AnimeHistoryUpdate(
     val episodeId: Long,
-    val seenAt: Date,
+    val seenAt: HistoryTimestamp,
 )

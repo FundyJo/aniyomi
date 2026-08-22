@@ -1,9 +1,8 @@
 package tachiyomi.data.history.manga
 
 import kotlinx.coroutines.flow.Flow
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.handlers.manga.MangaDatabaseHandler
+import tachiyomi.domain.history.historyTimestampToEpochMilliseconds
 import tachiyomi.domain.history.manga.model.MangaHistory
 import tachiyomi.domain.history.manga.model.MangaHistoryUpdate
 import tachiyomi.domain.history.manga.model.MangaHistoryWithRelations
@@ -34,42 +33,25 @@ class MangaHistoryRepositoryImpl(
     }
 
     override suspend fun resetMangaHistory(historyId: Long) {
-        try {
-            handler.await { historyQueries.resetHistoryById(historyId) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-        }
+        handler.await { historyQueries.resetHistoryById(historyId) }
     }
 
     override suspend fun resetHistoryByMangaId(mangaId: Long) {
-        try {
-            handler.await { historyQueries.resetHistoryByMangaId(mangaId) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-        }
+        handler.await { historyQueries.resetHistoryByMangaId(mangaId) }
     }
 
     override suspend fun deleteAllMangaHistory(): Boolean {
-        return try {
-            handler.await { historyQueries.removeAllHistory() }
-            true
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-            false
-        }
+        handler.await { historyQueries.removeAllHistory() }
+        return true
     }
 
     override suspend fun upsertMangaHistory(historyUpdate: MangaHistoryUpdate) {
-        try {
-            handler.await {
-                historyQueries.upsert(
-                    historyUpdate.chapterId,
-                    historyUpdate.readAt.time,
-                    historyUpdate.sessionReadDuration,
-                )
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
+        handler.await {
+            historyQueries.upsert(
+                historyUpdate.chapterId,
+                historyTimestampToEpochMilliseconds(historyUpdate.readAt),
+                historyUpdate.sessionReadDuration,
+            )
         }
     }
 }

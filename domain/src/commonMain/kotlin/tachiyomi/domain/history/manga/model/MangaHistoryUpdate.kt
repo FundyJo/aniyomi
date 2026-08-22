@@ -1,9 +1,9 @@
 package tachiyomi.domain.history.manga.model
 
-import java.util.Date
+import tachiyomi.domain.history.HistoryTimestamp
 
 data class MangaHistoryUpdate(
     val chapterId: Long,
-    val readAt: Date,
+    val readAt: HistoryTimestamp,
     val sessionReadDuration: Long,
 )

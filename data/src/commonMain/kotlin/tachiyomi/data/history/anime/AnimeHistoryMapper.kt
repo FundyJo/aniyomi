@@ -1,9 +1,9 @@
 package tachiyomi.data.history.anime
 
 import tachiyomi.domain.entries.anime.model.AnimeCover
+import tachiyomi.domain.history.historyTimestampFromEpochMilliseconds
 import tachiyomi.domain.history.anime.model.AnimeHistory
 import tachiyomi.domain.history.anime.model.AnimeHistoryWithRelations
-import java.util.Date
 
 object AnimeHistoryMapper {
     fun mapAnimeHistory(
@@ -13,7 +13,7 @@ object AnimeHistoryMapper {
     ): AnimeHistory = AnimeHistory(
         id = id,
         episodeId = episodeId,
-        seenAt = seenAt?.let(::Date),
+        seenAt = seenAt?.let(::historyTimestampFromEpochMilliseconds),
     )
 
     fun mapAnimeHistoryWithRelations(
@@ -33,7 +33,7 @@ object AnimeHistoryMapper {
         animeId = animeId,
         title = title,
         episodeNumber = episodeNumber,
-        seenAt = seenAt?.let(::Date),
+        seenAt = seenAt?.let(::historyTimestampFromEpochMilliseconds),
         coverData = AnimeCover(
             animeId = animeId,
             sourceId = sourceId,

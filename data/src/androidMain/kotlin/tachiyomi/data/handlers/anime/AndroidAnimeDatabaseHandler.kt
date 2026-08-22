@@ -74,7 +74,7 @@ class AndroidAnimeDatabaseHandler(
         return block(db).asFlow().mapToOneOrNull(queryDispatcher)
     }
 
-    override fun <T : Any> subscribeToPagingSource(
+    fun <T : Any> subscribeToPagingSource(
         countQuery: AnimeDatabase.() -> Query<Long>,
         queryProvider: AnimeDatabase.(Long, Long) -> Query<T>,
     ): PagingSource<Long, T> {

@@ -1,11 +1,11 @@
 package tachiyomi.domain.history.anime.model
 
-import java.util.Date
+import tachiyomi.domain.history.HistoryTimestamp
 
 data class AnimeHistory(
     val id: Long,
     val episodeId: Long,
-    val seenAt: Date?,
+    val seenAt: HistoryTimestamp?,
 ) {
     companion object {
         fun create() = AnimeHistory(

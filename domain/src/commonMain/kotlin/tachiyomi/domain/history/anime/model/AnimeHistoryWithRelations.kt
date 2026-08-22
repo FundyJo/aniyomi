@@ -1,7 +1,7 @@
 package tachiyomi.domain.history.anime.model
 
 import tachiyomi.domain.entries.anime.model.AnimeCover
-import java.util.Date
+import tachiyomi.domain.history.HistoryTimestamp
 
 data class AnimeHistoryWithRelations(
     val id: Long,
@@ -9,6 +9,6 @@ data class AnimeHistoryWithRelations(
     val animeId: Long,
     val title: String,
     val episodeNumber: Double,
-    val seenAt: Date?,
+    val seenAt: HistoryTimestamp?,
     val coverData: AnimeCover,
 )

@@ -1,9 +1,8 @@
 package tachiyomi.data.history.anime
 
 import kotlinx.coroutines.flow.Flow
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.handlers.anime.AnimeDatabaseHandler
+import tachiyomi.domain.history.historyTimestampToEpochMilliseconds
 import tachiyomi.domain.history.anime.model.AnimeHistory
 import tachiyomi.domain.history.anime.model.AnimeHistoryUpdate
 import tachiyomi.domain.history.anime.model.AnimeHistoryWithRelations
@@ -35,41 +34,24 @@ class AnimeHistoryRepositoryImpl(
     }
 
     override suspend fun resetAnimeHistory(historyId: Long) {
-        try {
-            handler.await { animehistoryQueries.resetAnimeHistoryById(historyId) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-        }
+        handler.await { animehistoryQueries.resetAnimeHistoryById(historyId) }
     }
 
     override suspend fun resetHistoryByAnimeId(animeId: Long) {
-        try {
-            handler.await { animehistoryQueries.resetHistoryByAnimeId(animeId) }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-        }
+        handler.await { animehistoryQueries.resetHistoryByAnimeId(animeId) }
     }
 
     override suspend fun deleteAllAnimeHistory(): Boolean {
-        return try {
-            handler.await { animehistoryQueries.removeAllHistory() }
-            true
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
-            false
-        }
+        handler.await { animehistoryQueries.removeAllHistory() }
+        return true
     }
 
     override suspend fun upsertAnimeHistory(historyUpdate: AnimeHistoryUpdate) {
-        try {
-            handler.await {
-                animehistoryQueries.upsert(
-                    historyUpdate.episodeId,
-                    historyUpdate.seenAt.time,
-                )
-            }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, throwable = e)
+        handler.await {
+            animehistoryQueries.upsert(
+                historyUpdate.episodeId,
+                historyTimestampToEpochMilliseconds(historyUpdate.seenAt),
+            )
         }
     }
 }

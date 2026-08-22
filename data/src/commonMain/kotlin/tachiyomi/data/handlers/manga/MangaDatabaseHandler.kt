@@ -1,6 +1,5 @@
 package tachiyomi.data.handlers.manga
 
-import androidx.paging.PagingSource
 import app.cash.sqldelight.ExecutableQuery
 import app.cash.sqldelight.Query
 import kotlinx.coroutines.flow.Flow
@@ -40,9 +39,4 @@ interface MangaDatabaseHandler {
     fun <T : Any> subscribeToOne(block: Database.() -> Query<T>): Flow<T>
 
     fun <T : Any> subscribeToOneOrNull(block: Database.() -> Query<T>): Flow<T?>
-
-    fun <T : Any> subscribeToPagingSource(
-        countQuery: Database.() -> Query<Long>,
-        queryProvider: Database.(Long, Long) -> Query<T>,
-    ): PagingSource<Long, T>
 }
