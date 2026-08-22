@@ -47,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -100,8 +102,10 @@ import eu.kanade.tachiyomi.source.SourceSearchResult
 import eu.kanade.tachiyomi.source.VideoSource
 import eu.kanade.tachiyomi.source.network.HttpHeaders
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import tachiyomi.domain.library.anime.LibraryAnime
 import tachiyomi.domain.library.manga.LibraryManga
+import java.awt.Canvas
 import java.text.DateFormat
 import java.util.Date
 
@@ -723,15 +727,9 @@ private data class ReaderState(
 private data class PlayerState(
     val videos: List<VideoSource> = emptyList(),
     val selectedVideo: VideoSource? = null,
-    val playing: Boolean = false,
-    val positionMs: Long = 0,
-    val durationMs: Long = 0,
-    val buffered: Float = 0f,
-    val volume: Float = 1f,
-    val speed: Float = 1f,
-    val fullscreen: Boolean = false,
     val error: String? = null,
     val loading: Boolean = true,
+    val resumePositionMs: Long = 0,
 )
 
 @Composable
@@ -1071,7 +1069,24 @@ private fun PlayerScreen(
 ) {
     val source = dependencies.sourceRegistry.get(sourceId) as? MultiplatformAnimeSource
     val scope = rememberCoroutineScope()
-    var state by remember(sourceId, episode.url) { mutableStateOf(PlayerState(fullscreen = fullscreen)) }
+    val engine = remember(sourceId, episode.url) { DesktopMediaPlayerEngine() }
+    val engineState by engine.state.collectAsState()
+    var state by remember(sourceId, episode.url) { mutableStateOf(PlayerState()) }
+
+    fun persistProgress() {
+        val currentEngineState = engine.state.value
+        val positionSeconds = currentEngineState.positionMs / 1000
+        val durationSeconds = currentEngineState.durationMs / 1000
+        if (positionSeconds > 0 || durationSeconds > 0) {
+            scope.launch { dependencies.libraryRepository.saveEpisodeProgress(sourceId, anime, episode, positionSeconds, durationSeconds) }
+        }
+    }
+
+    fun selectVideo(video: VideoSource) {
+        val resumeMs = engineState.positionMs.takeIf { it > 0 } ?: state.resumePositionMs
+        state = state.copy(selectedVideo = video, error = null, resumePositionMs = resumeMs)
+        engine.load(video, resumeMs)
+    }
 
     fun load() {
         if (source == null) {
@@ -1085,40 +1100,68 @@ private fun PlayerScreen(
                 val progress = dependencies.libraryRepository.getEpisodeProgress(sourceId, anime, episode)
                 videos to progress
             }.onSuccess { (videos, progress) ->
-                state = state.copy(videos = videos, selectedVideo = videos.firstOrNull(), positionMs = progress * 1000, loading = false)
+                val selected = videos.firstOrNull()
+                val resumeMs = progress * 1000
+                state = state.copy(videos = videos, selectedVideo = selected, resumePositionMs = resumeMs, loading = false)
+                selected?.let { engine.load(it, resumeMs) }
             }.onFailure { state = state.copy(loading = false, error = it.message ?: it::class.simpleName.orEmpty()) }
         }
     }
 
     LaunchedEffect(sourceId, episode.url) { load() }
+    LaunchedEffect(sourceId, episode.url) {
+        while (true) {
+            delay(10_000)
+            persistProgress()
+        }
+    }
+    DisposableEffect(sourceId, episode.url) {
+        onDispose {
+            persistProgress()
+            engine.release()
+        }
+    }
 
     Column(Modifier.fillMaxSize().onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
         when (event.key) {
-            Key.Spacebar -> { state = state.copy(playing = !state.playing); true }
-            Key.DirectionLeft -> { state = state.copy(positionMs = (state.positionMs - 10_000).coerceAtLeast(0)); true }
-            Key.DirectionRight -> { state = state.copy(positionMs = state.positionMs + 10_000); true }
-            Key.DirectionUp -> { state = state.copy(volume = (state.volume + 0.05f).coerceAtMost(1f)); true }
-            Key.DirectionDown -> { state = state.copy(volume = (state.volume - 0.05f).coerceAtLeast(0f)); true }
+            Key.Spacebar -> { engine.togglePlayPause(); true }
+            Key.DirectionLeft -> { engine.seekBy(-10_000); true }
+            Key.DirectionRight -> { engine.seekBy(10_000); true }
+            Key.DirectionUp -> { engine.setVolume((engineState.volume + 0.05f).coerceAtMost(1f)); true }
+            Key.DirectionDown -> { engine.setVolume((engineState.volume - 0.05f).coerceAtLeast(0f)); true }
+            Key.M -> { engine.setMuted(!engineState.muted); true }
             Key.F -> { onFullscreen(!fullscreen); true }
+            Key.Escape -> { if (fullscreen) onFullscreen(false) else { persistProgress(); onClose() }; true }
             else -> false
         }
     }) {
-        PlayerToolbar(state, fullscreen, onState = { state = it }, onFullscreen = onFullscreen, onClose = {
-            scope.launch { dependencies.libraryRepository.saveEpisodeProgress(sourceId, anime, episode, state.positionMs / 1000, state.durationMs / 1000) }
-            onClose()
-        })
+        PlayerToolbar(
+            state = state,
+            engineState = engineState,
+            fullscreen = fullscreen,
+            onPlayPause = engine::togglePlayPause,
+            onSeek = engine::seekBy,
+            onPosition = engine::seekTo,
+            onVolume = engine::setVolume,
+            onMute = { engine.setMuted(!engineState.muted) },
+            onSpeed = engine::setSpeed,
+            onQuality = ::selectVideo,
+            onAudio = engine::selectAudioTrack,
+            onSubtitle = engine::selectSubtitleTrack,
+            onFullscreen = onFullscreen,
+            onClose = {
+                persistProgress()
+                onClose()
+            },
+        )
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             when {
                 state.loading -> LoadingState("Resolving Jellyfin video streams for ${episode.name}")
                 state.error != null -> ErrorState("Player failed", state.error.orEmpty(), "Retry", onRetry = ::load)
+                engineState.error != null -> ErrorState("Player failed", "${engineState.error?.type}: ${engineState.error?.message}", "Retry", onRetry = ::load)
                 state.selectedVideo == null -> EmptyState("No video sources returned by ${source?.name ?: sourceId}.")
-                else -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Embedded libmpv backend pending", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                    Text(state.selectedVideo.quality, color = Color.White)
-                    Text(state.selectedVideo.url, color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Text("Headers forwarded: ${state.selectedVideo.headers.toList().joinToString { it.first }}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                }
+                else -> PlayerVideoSurface(engine, Modifier.fillMaxSize())
             }
         }
     }
@@ -1127,22 +1170,103 @@ private fun PlayerScreen(
 @Composable
 private fun PlayerToolbar(
     state: PlayerState,
+    engineState: MediaPlayerEngineState,
     fullscreen: Boolean,
-    onState: (PlayerState) -> Unit,
+    onPlayPause: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onPosition: (Long) -> Unit,
+    onVolume: (Float) -> Unit,
+    onMute: () -> Unit,
+    onSpeed: (Float) -> Unit,
+    onQuality: (VideoSource) -> Unit,
+    onAudio: (String?) -> Unit,
+    onSubtitle: (String?) -> Unit,
     onFullscreen: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
+    var qualityMenu by remember { mutableStateOf(false) }
+    var audioMenu by remember { mutableStateOf(false) }
+    var subtitleMenu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(onClick = { onState(state.copy(playing = !state.playing)) }) { Text(if (state.playing) "Pause" else "Play") }
-        Button(onClick = { onState(state.copy(positionMs = (state.positionMs - 10_000).coerceAtLeast(0))) }) { Text("-10s") }
-        Button(onClick = { onState(state.copy(positionMs = state.positionMs + 10_000)) }) { Text("+10s") }
-        Text("${state.positionMs / 1000}s", modifier = Modifier.width(72.dp))
-        Slider(value = state.volume, onValueChange = { onState(state.copy(volume = it)) }, modifier = Modifier.width(120.dp))
-        Slider(value = state.speed, onValueChange = { onState(state.copy(speed = it)) }, valueRange = 0.5f..2f, modifier = Modifier.width(120.dp))
-        Text("${state.videos.size} quality option(s)", modifier = Modifier.weight(1f))
+        Button(onClick = onPlayPause) { Text(if (engineState.playing) "Pause" else "Play") }
+        Button(onClick = { onSeek(-10_000) }) { Text("-10s") }
+        Button(onClick = { onSeek(10_000) }) { Text("+10s") }
+        Text(formatDuration(engineState.positionMs), modifier = Modifier.width(72.dp))
+        val durationForSlider = engineState.durationMs.coerceAtLeast(1)
+        Slider(
+            value = engineState.positionMs.coerceIn(0, durationForSlider).toFloat(),
+            onValueChange = { onPosition(it.toLong()) },
+            valueRange = 0f..durationForSlider.toFloat(),
+            modifier = Modifier.width(180.dp),
+        )
+        Text(formatDuration(engineState.durationMs), modifier = Modifier.width(72.dp))
+        Button(onClick = onMute) { Text(if (engineState.muted) "Unmute" else "Mute") }
+        Slider(value = engineState.volume, onValueChange = onVolume, modifier = Modifier.width(96.dp))
+        Slider(value = engineState.speed, onValueChange = onSpeed, valueRange = 0.5f..2f, modifier = Modifier.width(96.dp))
+        Box {
+            Button(onClick = { qualityMenu = true }) { Text(state.selectedVideo?.quality ?: "Quality") }
+            DropdownMenu(expanded = qualityMenu, onDismissRequest = { qualityMenu = false }) {
+                state.videos.forEach { video ->
+                    DropdownMenuItem(text = { Text(video.quality) }, onClick = { qualityMenu = false; onQuality(video) })
+                }
+            }
+        }
+        if (engineState.audioTracks.isNotEmpty()) {
+            Box {
+                Button(onClick = { audioMenu = true }) { Text(engineState.audioTracks.firstOrNull { it.selected }?.title ?: "Audio") }
+                DropdownMenu(expanded = audioMenu, onDismissRequest = { audioMenu = false }) {
+                    engineState.audioTracks.forEach { track ->
+                        DropdownMenuItem(text = { Text(track.titleWithLanguage()) }, onClick = { audioMenu = false; onAudio(track.id) })
+                    }
+                }
+            }
+        }
+        if (engineState.subtitleTracks.isNotEmpty()) {
+            Box {
+                Button(onClick = { subtitleMenu = true }) { Text(engineState.subtitleTracks.firstOrNull { it.selected }?.title ?: "Subtitles") }
+                DropdownMenu(expanded = subtitleMenu, onDismissRequest = { subtitleMenu = false }) {
+                    engineState.subtitleTracks.forEach { track ->
+                        DropdownMenuItem(text = { Text(track.titleWithLanguage()) }, onClick = { subtitleMenu = false; onSubtitle(track.id.takeUnless { it == "no" }) })
+                    }
+                }
+            }
+        }
+        Text(engineState.status.name, modifier = Modifier.weight(1f))
         Button(onClick = { onFullscreen(!fullscreen) }) { Text(if (fullscreen) "Window" else "Fullscreen") }
         Button(onClick = onClose) { Text("Close") }
     }
+}
+
+@Composable
+private fun PlayerVideoSurface(engine: MediaPlayerEngine, modifier: Modifier = Modifier) {
+    SwingPanel(
+        modifier = modifier,
+        factory = {
+            object : Canvas() {
+                override fun addNotify() {
+                    super.addNotify()
+                    engine.attach(this)
+                }
+            }.apply { background = java.awt.Color.BLACK }
+        },
+        update = { canvas -> if (canvas.isDisplayable) engine.attach(canvas) },
+    )
+}
+
+private fun formatDuration(milliseconds: Long): String {
+    val totalSeconds = (milliseconds / 1000).coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
+    }
+}
+
+private fun PlayerTrack.titleWithLanguage(): String {
+    return if (language.isNullOrBlank()) title else "$title ($language)"
 }
 
 @Composable
