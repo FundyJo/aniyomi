@@ -52,5 +52,7 @@ See `docs/multiplatform/PLATFORM_MATRIX.md`.
 
 ## Test Status
 
-- Initial validation should compile `core:platform` metadata and run source API metadata checks.
-- Broader Android builds remain required after each implementation phase.
+- Attempted `./gradlew :core:platform:compileKotlinMetadata :source-api:compileKotlinMetadata spotlessCheck`.
+- Gradle could not resolve `com.android.tools.build:gradle:8.9.1` because `dl.google.com` DNS resolution failed in the environment.
+- Local `git diff --check` passed before commit, and changed files passed secret scanning.
+- Broader Android builds remain required after dependency resolution is available.
