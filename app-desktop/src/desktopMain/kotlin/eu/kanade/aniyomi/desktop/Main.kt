@@ -86,6 +86,7 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
+import eu.kanade.tachiyomi.source.preference.DesktopSourcePreferenceStores
 import eu.kanade.tachiyomi.source.GlobalSearchQuery
 import eu.kanade.tachiyomi.source.MultiplatformAnimeSource
 import eu.kanade.tachiyomi.source.MultiplatformMangaSource
@@ -1330,6 +1331,8 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
     ScreenScaffold("Settings") {
         Text("Settings groups backed by desktop services and existing preferences will be enabled incrementally.")
         Spacer(Modifier.height(16.dp))
+        JellyfinSettingsPanel(dependencies)
+        Spacer(Modifier.height(16.dp))
         listOf(
             "General",
             "Appearance",
@@ -1349,12 +1352,77 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
     }
 }
 
+
+@Composable
+private fun JellyfinSettingsPanel(dependencies: DesktopDependencyContainer) {
+    val sources by dependencies.sourceRegistry.sources().collectAsState(emptyList())
+    val jellyfin = sources.filterIsInstance<MultiplatformAnimeSource>().firstOrNull { it.name.startsWith("Jellyfin") }
+    var serverUrl by remember(jellyfin?.id) { mutableStateOf("") }
+    var userId by remember(jellyfin?.id) { mutableStateOf("") }
+    var libraryId by remember(jellyfin?.id) { mutableStateOf("") }
+    var apiToken by remember(jellyfin?.id) { mutableStateOf("") }
+    var status by remember(jellyfin?.id) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(jellyfin?.id) {
+        val sourceId = jellyfin?.id ?: return@LaunchedEffect
+        val preferences = DesktopSourcePreferenceStores.forSource(sourceId)
+        serverUrl = preferences.getString("host_url", "")
+        userId = preferences.getString("user_id", "")
+        libraryId = preferences.getString("library_id", "")
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Jellyfin Source Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            if (jellyfin == null) {
+                Text("Install or reload the Jellyfin desktop extension before configuring the source.")
+                return@Column
+            }
+            OutlinedTextField(serverUrl, { serverUrl = it }, label = { Text("Server URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(userId, { userId = it }, label = { Text("User ID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(apiToken, { apiToken = it }, label = { Text("API Token (stored with Windows DPAPI)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(libraryId, { libraryId = it }, label = { Text("Library ID optional") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = {
+                    scope.launch {
+                        val preferences = DesktopSourcePreferenceStores.forSource(jellyfin.id)
+                        val secrets = DesktopSourcePreferenceStores.secretStoreForSource(jellyfin.id)
+                        preferences.putString("host_url", serverUrl.trim())
+                        preferences.putString("user_id", userId.trim())
+                        preferences.putString("library_id", libraryId.trim())
+                        val secretSaved = if (apiToken.isBlank()) true else secrets.putString("api_key", apiToken)
+                        status = if (secretSaved) "Saved" else "Secure storage unsupported on this desktop platform"
+                    }
+                }) { Text("Save") }
+                Button(onClick = {
+                    scope.launch {
+                        status = "Testing…"
+                        status = runCatching {
+                            jellyfin.searchAnime(1, "", jellyfin.getAnimeFilters())
+                            "Connected"
+                        }.getOrElse { error ->
+                            val message = error.message.orEmpty()
+                            when {
+                                message.contains("401") || message.contains("Unauthorized", ignoreCase = true) -> "Unauthorized"
+                                message.contains("URL", ignoreCase = true) -> "Invalid URL"
+                                else -> "Server unreachable: ${message.ifBlank { error::class.simpleName.orEmpty() }}"
+                            }
+                        }
+                    }
+                }) { Text("Test Connection") }
+                status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+            }
+        }
+    }
+}
+
 private fun settingSubtitle(group: String, dependencies: DesktopDependencyContainer): String = when (group) {
     "Downloads" -> dependencies.directories.downloads.toString()
     "Network" -> "KtorNetworkClient with CIO engine"
     "Sources" -> "BuiltinSourceRegistry (${dependencies.sourceRegistry.get(-1)?.name ?: "0 bundled sources"})"
     "About" -> "${dependencies.platformInfo.name} ${dependencies.platformInfo.version} (${dependencies.platformInfo.architecture})"
-    "Tracking" -> "Desktop secure storage refuses plaintext token persistence until DPAPI/Credential Manager is integrated"
+    "Tracking" -> "Jellyfin API tokens use Windows DPAPI-backed desktop source secret storage"
     else -> "No desktop-specific preference bound yet"
 }
 

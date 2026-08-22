@@ -47,6 +47,8 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(libs.ktor.client.cio)
+                implementation(libs.jna)
+                implementation(libs.jna.platform)
             }
         }
         val iosMain by getting {

@@ -33,9 +33,9 @@
 | History | Compile Pending | Desktop History screen reads real anime and manga history SQLDelight views. |
 | Updates | Compile Pending | Desktop Updates screen reads real anime and manga update SQLDelight views. |
 | Downloads | Not Started | Desktop screen shows the resolved download directory; reader/player source flows are prioritized before the coroutine download worker. |
-| Tracking | Not Started | Desktop secure storage refuses plaintext writes until DPAPI/Credential Manager integration is added. |
+| Tracking | Compile Pending | Desktop source secret storage uses Windows DPAPI via JNA for Jellyfin API tokens; non-Windows desktop reports unsupported instead of plaintext fallback. |
 | Backup | Not Started | Desktop backup import/export has not been implemented. |
-| Settings | Compile Pending | Desktop settings foundation lists service-backed groups and source/extension status; Jellyfin secure token settings still require DPAPI/Credential Manager integration. |
+| Settings | Compile Pending | Desktop settings include Jellyfin host/user/library fields, DPAPI-backed token save, and a real Test Connection action. |
 | Packaging | Compile Pending | Compose Desktop native distribution metadata is configured for MSI/EXE tasks; task execution is blocked before plugin resolution. |
 | UI Migration | Started / compile pending | Desktop now has a Compose Desktop shell with a typed back stack, routed details, reader/player routes, and preserved sidebar on detail screens. |
 

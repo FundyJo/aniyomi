@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.source.network.HttpHeaders
 import eu.kanade.tachiyomi.source.network.KtorNetworkClient
 import eu.kanade.tachiyomi.source.network.NetworkClient
 import eu.kanade.tachiyomi.source.preference.DesktopSourcePreferenceStores
+import eu.kanade.tachiyomi.source.preference.SourceSecretStore
 import eu.kanade.tachiyomi.source.preference.SourcePreferenceStore
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.decodeFromString
@@ -38,6 +39,7 @@ class JellyfinDesktopSource(
     private val suffix: String = "1",
     private val networkClient: NetworkClient = KtorNetworkClient(),
     private val preferences: SourcePreferenceStore = DesktopSourcePreferenceStores.forSource(sourceId(suffix)),
+    private val secrets: SourceSecretStore = DesktopSourcePreferenceStores.secretStoreForSource(sourceId(suffix)),
 ) : MultiplatformAnimeSource {
     override val id: Long = sourceId(suffix)
     override val name: String = "Jellyfin${if (suffix == "1") "" else " ($suffix)"}"
@@ -54,7 +56,7 @@ class JellyfinDesktopSource(
     )
 
     override fun getAnimeFilters(): List<SourceFilter> = listOf(
-        SourceFilter.Header("Configure host_url, user_id, api_key, and optionally library_id in source preferences."),
+        SourceFilter.Header("Configure host_url, user_id, and optionally library_id in source preferences. Store api_key through secure source settings."),
         SourceFilter.Text("library_id", libraryId),
     )
 
@@ -209,7 +211,7 @@ class JellyfinDesktopSource(
         get() = preferences.getString(USER_ID_KEY, "")
 
     private val apiKey: String
-        get() = preferences.getString(API_KEY_KEY, "")
+        get() = secrets.getString(API_KEY_KEY).orEmpty()
 
     private val libraryId: String
         get() = preferences.getString(LIBRARY_ID_KEY, "")
