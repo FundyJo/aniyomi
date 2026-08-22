@@ -1,6 +1,6 @@
 package tachiyomi.domain.category.model
 
-import java.io.Serializable
+import tachiyomi.domain.serialization.DomainSerializable
 
 data class Category(
     val id: Long,
@@ -8,7 +8,7 @@ data class Category(
     val order: Long,
     val flags: Long,
     val hidden: Boolean,
-) : Serializable {
+) : DomainSerializable {
 
     val isSystemCategory: Boolean = id == UNCATEGORIZED_ID
 

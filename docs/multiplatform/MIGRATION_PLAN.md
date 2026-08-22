@@ -49,7 +49,7 @@ Platform Abstraction Layer
 
 - Convert `source-api` to declare Android/Desktop/iOS targets after isolating `android.net.Uri` and `java.io.Serializable` compatibility.
 - Add `PlatformFileSystem` adapters and move local-source file traversal away from Unifile in common code.
-- Convert `domain` to KMP after removing Android paging and Android/JVM type leakage.
+- Continue `domain` KMP migration from the current source-set layout. Category models, category repository contracts, and read-only category interactors are already in `commonMain`; migrate entry/item/library/history models next after neutralizing Compose stability and Java date/serialization usage.
 - Move SQLDelight schema source roots into `commonMain` and add Android/JDBC/Native driver factories without changing migrations.
 - Add migration tests that open current Android database versions and verify all migrations.
 - Add desktop/iOS host skeletons only after shared domain/data compile for those targets.
