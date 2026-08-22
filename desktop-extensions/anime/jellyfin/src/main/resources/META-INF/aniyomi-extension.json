@@ -1,0 +1,25 @@
+{
+  "id": "jellyfin-all",
+  "name": "Jellyfin",
+  "version": "4",
+  "language": "all",
+  "type": "anime",
+  "entryPoints": [
+    "eu.kanade.aniyomi.desktop.extension.anime.jellyfin.JellyfinDesktopSourceFactory"
+  ],
+  "sources": [
+    1100359934660540567,
+    5716273013801838310,
+    7066619062139039107
+  ],
+  "capabilities": [
+    "Anime",
+    "Popular",
+    "Latest",
+    "Search",
+    "Video",
+    "Network",
+    "CustomHeaders",
+    "Authentication"
+  ]
+}
