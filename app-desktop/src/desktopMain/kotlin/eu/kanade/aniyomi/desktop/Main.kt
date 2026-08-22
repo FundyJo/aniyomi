@@ -1505,14 +1505,28 @@ private fun ExtensionsScreen(dependencies: DesktopDependencyContainer) {
     val extensions by dependencies.extensionManager.extensions.collectAsState(emptyList())
     val sources by dependencies.sourceRegistry.sources().collectAsState(emptyList())
     val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { dependencies.extensionManager.reload() }
 
     ScreenScaffold("Extensions") {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = { scope.launch { dependencies.extensionManager.reload() } }) { Text("Reload") }
+            Button(onClick = {
+                val jar = dependencies.filePicker.pickFile("Install desktop extension JAR")
+                if (jar != null) {
+                    scope.launch {
+                        status = "Installing…"
+                        status = runCatching {
+                            dependencies.extensionManager.installJar(jar)
+                            "Installed ${jar.fileName}"
+                        }.getOrElse { "Install failed: ${it.message ?: it::class.simpleName}" }
+                    }
+                }
+            }) { Text("Install JAR") }
             Button(onClick = { dependencies.externalBrowser.open(dependencies.directories.extensions.toUri()) }) { Text("Open Extensions Folder") }
         }
+        status?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         Spacer(Modifier.height(12.dp))
         Text("Installed JARs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
@@ -1521,16 +1535,30 @@ private fun ExtensionsScreen(dependencies: DesktopDependencyContainer) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(260.dp)) {
                 items(extensions) { extension ->
-                    val status = when (extension.status) {
+                    val extensionStatus = when (extension.status) {
                         DesktopExtensionStatus.Loaded -> "Loaded"
                         DesktopExtensionStatus.Invalid -> "Invalid manifest"
                         DesktopExtensionStatus.Failed -> "Failed: ${extension.error ?: "Unknown error"}"
                     }
-                    InfoCard(
-                        title = extension.name,
-                        subtitle = "${extension.language.uppercase()} • ${extension.version} • $status",
-                        tags = listOfNotNull(extension.type?.name, extension.id) + extension.sources.map { it.name },
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        InfoCard(
+                            title = extension.name,
+                            subtitle = "${extension.language.uppercase()} • ${extension.version} • $extensionStatus",
+                            tags = listOfNotNull(extension.type?.name, extension.id) + extension.sources.map { it.name },
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { dependencies.externalBrowser.open(extension.packagePath.parent.toUri()) }) { Text("Open Folder") }
+                            Button(onClick = {
+                                scope.launch {
+                                    status = "Removing…"
+                                    status = runCatching {
+                                        dependencies.extensionManager.remove(extension)
+                                        "Removed ${extension.name}"
+                                    }.getOrElse { "Remove failed: ${it.message ?: it::class.simpleName}" }
+                                }
+                            }) { Text("Remove") }
+                        }
+                    }
                 }
             }
         }
