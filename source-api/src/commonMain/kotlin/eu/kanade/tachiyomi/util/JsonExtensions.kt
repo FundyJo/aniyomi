@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.util
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 
 /**
@@ -13,6 +14,7 @@ import kotlinx.serialization.json.Json
  *
  * @since extensions-lib 16
  */
+@OptIn(ExperimentalSerializationApi::class)
 val defaultJson: Json = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
