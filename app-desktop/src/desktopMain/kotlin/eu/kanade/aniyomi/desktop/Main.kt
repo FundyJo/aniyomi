@@ -110,7 +110,6 @@ import tachiyomi.domain.library.manga.LibraryManga
 import java.awt.Canvas
 import java.text.DateFormat
 import java.util.Date
-import kotlin.io.path.toUri
 
 fun main() = application {
     val dependencies = remember { DesktopDependencyContainer() }

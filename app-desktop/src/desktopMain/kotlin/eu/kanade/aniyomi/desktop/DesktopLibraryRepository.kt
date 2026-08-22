@@ -57,7 +57,7 @@ class DesktopLibraryRepository(
                 description = mangaRow.description,
                 thumbnailUrl = mangaRow.thumbnail_url,
                 status = mangaRow.status.toInt(),
-                chapters = mangaDatabase.chaptersQueries.getChaptersByMangaId(mangaRow._id, false).executeAsList().map { chapter ->
+                chapters = mangaDatabase.chaptersQueries.getChaptersByMangaId(mangaRow._id, 0L).executeAsList().map { chapter ->
                     DesktopChapterBackup(
                         url = chapter.url,
                         name = chapter.name,
@@ -233,7 +233,7 @@ class DesktopLibraryRepository(
                 readAt,
                 _,
             ->
-            DesktopHistoryItem(MediaType.Manga, title, mangaId, chapterId, chapterNumber, source, readAt)
+            DesktopHistoryItem(MediaType.Manga, title, mangaId, chapterId, chapterNumber, source, readAt ?: 0L)
         }.executeAsList()
         val anime = animeDatabase.animehistoryViewQueries.animehistory(normalizedQuery) {
                 id,
@@ -247,7 +247,7 @@ class DesktopLibraryRepository(
                 episodeNumber,
                 seenAt,
             ->
-            DesktopHistoryItem(MediaType.Anime, title, animeId, episodeId, episodeNumber, source, seenAt)
+            DesktopHistoryItem(MediaType.Anime, title, animeId, episodeId, episodeNumber, source, seenAt ?: 0L)
         }.executeAsList()
         (anime + manga).sortedByDescending { it.timestamp }
     }
