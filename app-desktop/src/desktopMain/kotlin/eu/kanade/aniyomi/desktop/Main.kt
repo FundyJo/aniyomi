@@ -10,6 +10,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -194,9 +196,16 @@ private fun DesktopApplication(dependencies: DesktopDependencyContainer) {
     val navigator = remember { DesktopNavigator() }
     val searchFocusRequester = remember { FocusRequester() }
     var fullscreen by remember { mutableStateOf(false) }
+    val themeMode by dependencies.preferences.themeMode.collectAsState()
+    val systemDark = isSystemInDarkTheme()
     val route = navigator.current
+    val darkTheme = when (themeMode) {
+        DesktopThemeMode.System -> systemDark
+        DesktopThemeMode.Light -> false
+        DesktopThemeMode.Dark -> true
+    }
 
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
         Surface(
             modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
@@ -1547,6 +1556,8 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
         Spacer(Modifier.height(16.dp))
         JellyfinSettingsPanel(dependencies)
         Spacer(Modifier.height(16.dp))
+        AppearanceSettingsPanel(dependencies)
+        Spacer(Modifier.height(16.dp))
         BackupSettingsPanel(dependencies)
         Spacer(Modifier.height(16.dp))
         listOf(
@@ -1565,6 +1576,18 @@ private fun SettingsScreen(dependencies: DesktopDependencyContainer) {
         ).forEach { group ->
             InfoCard(title = group, subtitle = settingSubtitle(group, dependencies), tags = emptyList())
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun AppearanceSettingsPanel(dependencies: DesktopDependencyContainer) {
+    val themeMode by dependencies.preferences.themeMode.collectAsState()
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Appearance", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Theme changes are saved immediately and applied to the running desktop window.")
+            EnumMenu("Theme: ${themeMode.name}", DesktopThemeMode.entries) { dependencies.preferences.setThemeMode(it) }
         }
     }
 }
@@ -1687,6 +1710,7 @@ private fun settingSubtitle(group: String, dependencies: DesktopDependencyContai
     "About" -> "${dependencies.platformInfo.name} ${dependencies.platformInfo.version} (${dependencies.platformInfo.architecture})"
     "Tracking" -> "Jellyfin API tokens use Windows DPAPI-backed desktop source secret storage"
     "Backup" -> "JSON import/export for library entries and progress; secrets are excluded"
+    "Appearance" -> "Theme mode persists as System, Light, or Dark"
     else -> "No desktop-specific preference bound yet"
 }
 

@@ -29,6 +29,7 @@ class DesktopDependencyContainer(
     val globalSourceSearch: GlobalSourceSearch = GlobalSourceSearch(sourceRegistry)
     val libraryRepository: DesktopLibraryRepository = DesktopLibraryRepository(mangaDatabase, animeDatabase)
     val backupService: DesktopBackupService = DesktopBackupService(libraryRepository)
+    val preferences: DesktopPreferences = DesktopPreferences(directories.data.resolve("desktop-preferences.properties"))
 
     val secureStorage: SecureStorage = DesktopSecureStorage()
     val externalBrowser: ExternalBrowser = DesktopExternalBrowser()
