@@ -10,7 +10,7 @@
 | Anime Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
 | Manga Sources | ✅ | 🚧 | 🚧 | Legacy Android extensions preserved; KMP sources planned. |
 | History | ✅ | 🚧 | 🚧 | Domain models/contracts/use cases and data repositories moved to `commonMain`; UI and platform behavior remain Android reference. |
-| Downloads | ✅ | 🚧 | 🚧 | `DownloadEngine` contract added. |
+| Downloads | ✅ | 🚧 | 🚧 | Common download request, state, progress, queue item, and repository contracts added; platform workers remain Android-only. |
 | Reader | ✅ | 🚧 | 🚧 | Needs shared reader state and image pipeline. |
 | Player | ✅ | 🚧 | 🚧 | `MediaPlayerEngine` contract added. |
 | Tracking | ✅ | 🚧 | 🚧 | Models/repository contracts and simple grouping use cases moved to `commonMain`; OAuth/browser/token storage implementations remain platform-specific. |
