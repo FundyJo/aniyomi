@@ -20,6 +20,21 @@ data class HttpHeaders(
         return copy(values = values + (existingKey to (values[existingKey].orEmpty() + header.second)))
     }
 
+    fun set(name: String, value: String): HttpHeaders {
+        val existingKey = values.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
+        return copy(values = values - existingKey + (name to listOf(value)))
+    }
+
+    fun replace(name: String, values: List<String>): HttpHeaders {
+        val existingKey = this.values.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
+        return copy(values = this.values - existingKey + (name to values))
+    }
+
+    fun remove(name: String): HttpHeaders {
+        val existingKey = values.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: return this
+        return copy(values = values - existingKey)
+    }
+
     fun toList(): List<Pair<String, String>> = values.flatMap { (name, headerValues) ->
         headerValues.map { value -> name to value }
     }

@@ -19,11 +19,13 @@ kotlin {
             dependencies {
                 api(kotlinx.serialization.json)
                 api(kotlinx.coroutines.core)
+                api(libs.ktor.client.core)
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
+                implementation(kotlinx.coroutines.test)
             }
         }
         val androidMain by getting {
@@ -33,12 +35,23 @@ kotlin {
                 api(libs.rxjava)
                 api(libs.jsoup)
                 api(libs.okhttp.core)
+                implementation(libs.ktor.client.okhttp)
                 api(aniyomilibs.nanohttpd)
                 api(libs.preferencektx)
 
                 // Workaround for https://youtrack.jetbrains.com/issue/KT-57605
                 implementation(kotlinx.coroutines.android)
                 implementation(project.dependencies.platform(kotlinx.coroutines.bom))
+            }
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.cio)
+            }
+        }
+        val iosMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.darwin)
             }
         }
     }

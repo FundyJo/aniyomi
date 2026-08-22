@@ -85,3 +85,37 @@ sqldelight {
         }
     }
 }
+
+val checkDataCommonMainImports by tasks.registering {
+    group = "verification"
+    description = "Fails when data commonMain Kotlin sources reference platform-only APIs."
+
+    val commonMainDir = layout.projectDirectory.dir("src/commonMain/kotlin")
+    inputs.dir(commonMainDir)
+
+    doLast {
+        val forbidden = listOf(
+            Regex("\\bandroid\\."),
+            Regex("\\bandroidx\\."),
+            Regex("\\bjava\\."),
+            Regex("\\bjavax\\."),
+        )
+        val violations = commonMainDir.asFileTree.matching { include("**/*.kt") }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { index, line ->
+                    if (forbidden.any { it.containsMatchIn(line) }) {
+                        "${file.relativeTo(projectDir)}:${index + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+        check(violations.isEmpty()) {
+            "data commonMain contains platform-only Kotlin references:\n${violations.joinToString("\n")}"
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(checkDataCommonMainImports)
+}

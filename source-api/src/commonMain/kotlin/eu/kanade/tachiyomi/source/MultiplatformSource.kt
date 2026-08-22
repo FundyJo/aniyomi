@@ -11,6 +11,7 @@ interface MultiplatformSource {
 }
 
 interface MultiplatformAnimeSource : MultiplatformSource {
+    fun getAnimeFilters(): List<SourceFilter> = emptyList()
     suspend fun getPopularAnime(page: Int): SourcePage<SourceMedia>
     suspend fun getLatestAnime(page: Int): SourcePage<SourceMedia>
     suspend fun searchAnime(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia>
@@ -20,6 +21,7 @@ interface MultiplatformAnimeSource : MultiplatformSource {
 }
 
 interface MultiplatformMangaSource : MultiplatformSource {
+    fun getMangaFilters(): List<SourceFilter> = emptyList()
     suspend fun getPopularManga(page: Int): SourcePage<SourceMedia>
     suspend fun getLatestManga(page: Int): SourcePage<SourceMedia>
     suspend fun searchManga(page: Int, query: String, filters: List<SourceFilter>): SourcePage<SourceMedia>
@@ -32,6 +34,12 @@ interface MultiplatformMangaSource : MultiplatformSource {
 interface MediaSource : MultiplatformAnimeSource
 
 enum class SourceCapability {
+    Popular,
+    Latest,
+    Search,
+    Manga,
+    Anime,
+    Video,
     Network,
     Cookies,
     JavaScript,
